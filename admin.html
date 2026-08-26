@@ -1,0 +1,712 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Painel do Administrador — Avaliação Digital 2.0</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;700;800&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/css/style.css?v=5">
+</head>
+<body>
+
+<div class="sidebar-overlay" data-sidebar-overlay></div>
+
+<div class="app-shell">
+
+  <aside class="app-sidebar">
+    <div class="app-sidebar__brand">
+      <div class="app-sidebar__brand-mark">🪁</div>
+      <div class="app-sidebar__brand-text">
+        <strong>Avaliação Digital</strong>
+        <span>Conexão Junina · 2.0</span>
+      </div>
+    </div>
+
+    <div class="app-sidebar__event">
+      <p class="app-sidebar__event-label">Perfil</p>
+      <p class="app-sidebar__event-name">Administrador</p>
+    </div>
+
+    <nav class="app-nav" data-app-nav></nav>
+
+    <div class="app-sidebar__foot">
+      <div class="app-user">
+        <div class="app-user__avatar" data-user-avatar>—</div>
+        <div>
+          <div class="app-user__name" data-user-name>—</div>
+          <div class="app-user__role" data-user-role>—</div>
+        </div>
+      </div>
+      <button class="logout-btn" data-logout>Sair do sistema</button>
+    </div>
+  </aside>
+
+  <div class="app-main">
+    <div class="mobile-topbar">
+      <strong>Avaliação Digital</strong>
+      <button class="mobile-topbar__toggle" data-sidebar-toggle aria-label="Abrir menu">☰</button>
+    </div>
+
+    <header class="app-topbar">
+      <div>
+        <h1>Painel do Administrador</h1>
+        <p class="app-topbar__sub">Controle eventos, usuários, quesitos e grupos de toda a plataforma.</p>
+      </div>
+    </header>
+
+    <div class="app-content">
+
+      <div class="tabs">
+        <button class="tab-btn is-active" data-tab="eventos">Eventos</button>
+        <button class="tab-btn" data-tab="usuarios">Usuários</button>
+        <button class="tab-btn" data-tab="quesitos">Quesitos</button>
+        <button class="tab-btn" data-tab="candidatas">Candidatas / Grupos</button>
+      </div>
+
+      <!-- ===================== EVENTOS ===================== -->
+      <section class="tab-panel is-active" id="panel-eventos">
+        <div class="card">
+          <div class="card__head">
+            <div>
+              <h2 class="card__title">Eventos cadastrados</h2>
+              <p class="card__desc">Cada evento roda de forma isolada — dados e usuários não se misturam entre eventos.</p>
+            </div>
+            <button class="btn btn-primary btn-sm" id="btnNovoEvento">+ Novo evento</button>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Evento</th><th>Período</th><th>Grupos</th><th>Status</th><th>Ações</th></tr></thead>
+              <tbody id="eventosBody"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- ===================== USUÁRIOS ===================== -->
+      <section class="tab-panel" id="panel-usuarios">
+        <div class="card">
+          <div class="card__head">
+            <div>
+              <h2 class="card__title">Usuários e códigos de acesso</h2>
+              <p class="card__desc">Associe cada usuário a um perfil e aos eventos que ele pode acessar.</p>
+            </div>
+            <button class="btn btn-primary btn-sm" id="btnNovoUsuario">+ Novo usuário</button>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Código</th><th>Nome</th><th>Perfil</th><th>Eventos</th><th>Status</th><th>Ações</th></tr></thead>
+              <tbody id="usuariosBody"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- ===================== QUESITOS ===================== -->
+      <section class="tab-panel" id="panel-quesitos">
+        <div class="card">
+          <div class="card__head">
+            <div>
+              <h2 class="card__title">Quesitos de avaliação (catálogo geral)</h2>
+              <p class="card__desc">Válidos para todos os eventos, ou só para os que você selecionar.</p>
+            </div>
+            <button class="btn btn-primary btn-sm" id="btnNovoQuesito">+ Novo quesito</button>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Ordem</th><th>Nome do quesito</th><th>Peso</th><th>Válido para</th><th>Ações</th></tr></thead>
+              <tbody id="quesitosBody"></tbody>
+            </table>
+          </div>
+          <button class="btn btn-secondary btn-sm" id="btnSalvarQuesitos" style="margin-top:14px;">Salvar quesitos</button>
+        </div>
+      </section>
+
+      <!-- ===================== CANDIDATAS / GRUPOS ===================== -->
+      <section class="tab-panel" id="panel-candidatas">
+        <div class="card">
+          <div class="card__head">
+            <div>
+              <h2 class="card__title">Grupos / candidatas (cadastro geral)</h2>
+              <p class="card__desc">Cadastro de todas as quadrilhas conhecidas pela plataforma. Associe quais participam de cada evento na aba "Eventos".</p>
+            </div>
+            <button class="btn btn-primary btn-sm" id="btnNovaCandidata">+ Novo grupo</button>
+          </div>
+          <div class="form-field" style="max-width:340px;margin-bottom:14px;">
+            <input type="text" id="filtroGrupos" placeholder="Filtrar por nome, cidade ou estado..." oninput="candidatasFiltro=this.value;renderCandidatas();">
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th onclick="ordenarCandidatas('nome')" style="cursor:pointer;user-select:none;">Nome do grupo <span id="sortIcon-nome"></span></th>
+                  <th onclick="ordenarCandidatas('cidade')" style="cursor:pointer;user-select:none;">Cidade <span id="sortIcon-cidade"></span></th>
+                  <th onclick="ordenarCandidatas('estado')" style="cursor:pointer;user-select:none;">Estado <span id="sortIcon-estado"></span></th>
+                  <th>Ações</th>
+                </tr>
+              </thead>
+              <tbody id="candidatasBody"></tbody>
+            </table>
+          </div>
+          <button class="btn btn-secondary btn-sm" id="btnSalvarCandidatas" style="margin-top:14px;">Salvar grupos</button>
+        </div>
+      </section>
+
+    </div>
+  </div>
+</div>
+
+<!-- ===================== MODAL: usuário ===================== -->
+<div class="modal-overlay" id="modalUsuario">
+  <div class="modal">
+    <div class="modal__head">
+      <h2 class="card__title" id="modalUsuarioTitulo">Novo usuário</h2>
+      <button class="modal__close" data-close-modal="modalUsuario">&times;</button>
+    </div>
+    <div class="form-field">
+      <label for="userCodigo">Código de acesso</label>
+      <input type="text" id="userCodigo" placeholder="EX: AVAL4-2027" style="text-transform:uppercase;" oninput="autoUpper(this)">
+    </div>
+    <div class="form-field">
+      <label for="userNome">Nome</label>
+      <input type="text" id="userNome" placeholder="NOME COMPLETO" style="text-transform:uppercase;" oninput="autoUpper(this)">
+    </div>
+    <div class="form-field">
+      <label for="userPerfil">Perfil</label>
+      <select id="userPerfil">
+        <option value="admin">Administrador</option>
+        <option value="presidente">Presidente de mesa</option>
+        <option value="avaliador" selected>Avaliador</option>
+        <option value="consultor">Consultor</option>
+      </select>
+    </div>
+    <div class="form-field">
+      <label>Eventos com acesso liberado</label>
+      <div id="userEventosChecklist" class="table-wrap" style="padding:10px 14px;max-height:160px;overflow-y:auto;"></div>
+    </div>
+    <div class="form-field">
+      <label><input type="checkbox" id="userAtivo" style="width:auto;margin-right:8px;" checked>Usuário ativo (pode fazer login)</label>
+    </div>
+    <button class="btn btn-primary btn-block" id="btnSalvarUsuario">Salvar usuário</button>
+  </div>
+</div>
+
+<!-- ===================== MODAL: editar evento ===================== -->
+<div class="modal-overlay" id="modalEditarEvento">
+  <div class="modal">
+    <div class="modal__head">
+      <h2 class="card__title">Editar evento</h2>
+      <button class="modal__close" data-close-modal="modalEditarEvento">&times;</button>
+    </div>
+    <input type="hidden" id="editEventoId">
+
+    <div class="form-field">
+      <label for="editEventoNome">Nome do evento</label>
+      <input type="text" id="editEventoNome" style="text-transform:uppercase;" oninput="autoUpper(this)">
+    </div>
+
+    <div class="field-row">
+      <div class="form-field">
+        <label for="editDataInicio">Data/hora inicial</label>
+        <input type="datetime-local" id="editDataInicio">
+      </div>
+      <div class="form-field">
+        <label for="editDataFim">Data/hora final</label>
+        <input type="datetime-local" id="editDataFim">
+      </div>
+    </div>
+    <p class="hint" style="margin-top:-8px;margin-bottom:16px;">Avaliadores e presidentes de mesa só verão este evento como disponível dentro desse período.</p>
+
+    <h3 style="font-size:14px;margin:18px 0 10px;">Grupos participantes deste evento</h3>
+    <div id="eventoGruposChecklist" class="table-wrap" style="padding:10px 14px;max-height:180px;overflow-y:auto;margin-bottom:16px;"></div>
+
+    <h3 style="font-size:14px;margin:18px 0 10px;">Regras de apuração</h3>
+
+    <div class="field-row">
+      <div class="form-field">
+        <label for="editNotaMin">Nota mínima</label>
+        <input type="number" step="0.1" id="editNotaMin">
+      </div>
+      <div class="form-field">
+        <label for="editNotaMax">Nota máxima</label>
+        <input type="number" step="0.1" id="editNotaMax">
+      </div>
+    </div>
+
+    <div class="form-field">
+      <label for="editNotaTipo">Tipo de nota</label>
+      <select id="editNotaTipo">
+        <option value="fracionada">Nota fracionada (7,5 · 8,5 · 9,5 ...)</option>
+        <option value="quebrada">Nota quebrada (7,1 · 7,2 · 7,3 ...)</option>
+      </select>
+      <p class="hint">Sempre respeitando a nota mínima e máxima definidas acima.</p>
+    </div>
+
+    <h3 style="font-size:14px;margin:18px 0 10px;">Descarte de notas</h3>
+
+    <div class="form-field">
+      <label for="editRegraDescarte">Regra de descarte</label>
+      <select id="editRegraDescarte">
+        <option value="sem_descarte">Sem descarte</option>
+        <option value="maior">Descarte da maior nota por quesito</option>
+        <option value="maior_e_menor">Descarte de maior e menor nota por quesito</option>
+      </select>
+      <p class="hint">
+        "Maior": remove só uma nota igual à mais alta do quesito antes de somar — ex.: notas 10, 10 e 9 viram 10 + 9.<br>
+        "Maior e menor": faz o mesmo dos dois lados — remove uma nota igual à mais alta e uma igual à mais baixa.<br>
+        <strong>Em ambos os casos, o descarte só é aplicado quando houver 3 ou mais avaliadores votando o mesmo quesito.</strong>
+      </p>
+    </div>
+
+    <div class="form-field">
+      <label for="editMinCaracteres">Tamanho mínimo da justificativa (caracteres)</label>
+      <input type="number" min="0" id="editMinCaracteres">
+    </div>
+
+    <div class="form-field">
+      <label><input type="checkbox" id="editAssinaturaObrigatoria" style="width:auto;margin-right:8px;">Assinatura obrigatória do avaliador</label>
+    </div>
+
+    <button class="btn btn-primary btn-block" id="btnSalvarEdicaoEvento" style="margin-top:8px;">Salvar alterações</button>
+  </div>
+</div>
+
+<!-- ===================== MODAL: novo evento ===================== -->
+<div class="modal-overlay" id="modalEvento">
+  <div class="modal">
+    <div class="modal__head">
+      <h2 class="card__title">Novo evento</h2>
+      <button class="modal__close" data-close-modal="modalEvento">&times;</button>
+    </div>
+    <p class="card__desc" style="margin-bottom:16px;">No modo demonstração, novos eventos são simulados localmente. No backend real, isso cria uma planilha a partir do template e registra o evento na plataforma.</p>
+    <div class="form-field">
+      <label for="eventoNome">Nome do evento</label>
+      <input type="text" id="eventoNome" placeholder="EX: FESTIVAL JUNINO DE EXEMPLO 2027" style="text-transform:uppercase;" oninput="autoUpper(this)">
+    </div>
+    <button class="btn btn-primary btn-block" id="btnSalvarEvento">Criar evento</button>
+  </div>
+</div>
+
+<script src="assets/js/config.js?v=5"></script>
+<script src="assets/js/mock-data.js?v=5"></script>
+<script src="assets/js/api.js?v=5"></script>
+<script src="assets/js/session.js?v=5"></script>
+<script src="assets/js/toast.js?v=5"></script>
+<script src="assets/js/shell.js?v=5"></script>
+<script>
+  var session = Session.require(['admin']);
+  if (session) { Shell.init(session); boot(); }
+  var EVT = session ? session.eventoId : null;
+  var eventosCache = [];
+  var gruposCache = [];
+
+  function autoUpper(el) {
+    var pos = el.selectionStart;
+    el.value = el.value.toUpperCase();
+    if (pos !== null) el.setSelectionRange(pos, pos);
+  }
+
+  function boot() {
+    document.querySelectorAll('.tab-btn').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        document.querySelectorAll('.tab-btn').forEach(function (b) { b.classList.remove('is-active'); });
+        document.querySelectorAll('.tab-panel').forEach(function (p) { p.classList.remove('is-active'); });
+        btn.classList.add('is-active');
+        document.getElementById('panel-' + btn.dataset.tab).classList.add('is-active');
+      });
+    });
+
+    bindModals();
+    loadEventos();
+    loadUsuarios();
+    loadQuesitos();
+    loadCandidatas();
+  }
+
+  function bindModals() {
+    document.querySelectorAll('[data-close-modal]').forEach(function (btn) {
+      btn.addEventListener('click', function () { document.getElementById(btn.dataset.closeModal).classList.remove('is-open'); });
+    });
+
+    document.getElementById('btnNovoUsuario').addEventListener('click', function () {
+      document.getElementById('modalUsuarioTitulo').textContent = 'Novo usuário';
+      document.getElementById('userCodigo').value = '';
+      document.getElementById('userCodigo').disabled = false;
+      document.getElementById('userNome').value = '';
+      document.getElementById('userPerfil').value = 'avaliador';
+      document.getElementById('userAtivo').checked = true;
+      renderUserEventosChecklist([]);
+      document.getElementById('modalUsuario').dataset.editingCodigo = '';
+      document.getElementById('modalUsuario').classList.add('is-open');
+    });
+
+    document.getElementById('btnSalvarUsuario').addEventListener('click', function () {
+      var editando = document.getElementById('modalUsuario').dataset.editingCodigo;
+      var codigo = (editando || document.getElementById('userCodigo').value.trim().toUpperCase());
+      var nome = document.getElementById('userNome').value.trim();
+      var perfil = document.getElementById('userPerfil').value;
+      var ativo = document.getElementById('userAtivo').checked;
+      var eventosSelecionados = Array.prototype.slice.call(document.querySelectorAll('#userEventosChecklist input:checked')).map(function (cb) { return cb.value; });
+
+      if (!codigo || !nome) { Toast.error('Preencha código e nome.'); return; }
+
+      Api.call('admin_save_usuario', { codigo: codigo, nome: nome, perfil: perfil, eventos: eventosSelecionados, ativo: ativo }).then(function (res) {
+        res.success ? Toast.success(res.message) : Toast.error(res.message);
+        document.getElementById('modalUsuario').classList.remove('is-open');
+        loadUsuarios();
+      });
+    });
+
+    document.getElementById('btnNovoEvento').addEventListener('click', function () {
+      document.getElementById('eventoNome').value = '';
+      document.getElementById('modalEvento').classList.add('is-open');
+    });
+
+    document.getElementById('btnSalvarEvento').addEventListener('click', function () {
+      var nome = document.getElementById('eventoNome').value.trim();
+      if (!nome) { Toast.error('Informe o nome do evento.'); return; }
+      Toast.info('No modo demonstração, apenas um evento pode ser simulado. Conecte o backend para multi-evento completo.');
+      document.getElementById('modalEvento').classList.remove('is-open');
+    });
+  }
+
+  function renderUserEventosChecklist(selecionados) {
+    var host = document.getElementById('userEventosChecklist');
+    if (!eventosCache.length) { host.innerHTML = '<p class="card__desc">Nenhum evento cadastrado ainda.</p>'; return; }
+    host.innerHTML = eventosCache.map(function (e) {
+      var checked = selecionados.indexOf(e.id) !== -1 ? 'checked' : '';
+      return '<label style="display:flex;align-items:center;gap:8px;padding:6px 0;font-size:13px;">' +
+        '<input type="checkbox" value="' + e.id + '" style="width:auto;" ' + checked + '>' + e.nome + '</label>';
+    }).join('');
+  }
+
+  /* ---------------- eventos ---------------- */
+
+  function loadEventos() {
+    Api.call('admin_list_eventos', {}).then(function (res) {
+      eventosCache = res.eventos || [];
+      var body = document.getElementById('eventosBody');
+      var statusMap = {
+        A_INICIAR: '<span class="badge badge-neutral">A iniciar</span>',
+        EM_ANDAMENTO: '<span class="badge badge-active">Em andamento</span>',
+        FINALIZADO: '<span class="badge badge-warn">Finalizado</span>'
+      };
+      body.innerHTML = eventosCache.map(function (e) {
+        var periodo = (e.dataInicio ? formatarDataCurta(e.dataInicio) : '—') + ' até ' + (e.dataFim ? formatarDataCurta(e.dataFim) : '—');
+        return '<tr><td>' + e.nome + '</td><td style="font-size:12.5px;">' + periodo + '</td><td>' + e.candidatas + '</td><td>' + (statusMap[e.statusConcurso] || e.statusConcurso) + '</td>' +
+          '<td>' + statusActions(e) + '</td></tr>';
+      }).join('');
+    });
+  }
+
+  function formatarDataCurta(iso) {
+    var d = new Date(iso);
+    if (isNaN(d.getTime())) return iso;
+    return d.toLocaleDateString('pt-BR');
+  }
+
+  function statusActions(e) {
+    var btns = [];
+    btns.push('<button class="btn btn-secondary btn-sm" onclick="abrirEdicaoEvento(\'' + e.id + '\')">Editar</button>');
+    if (e.statusConcurso !== 'EM_ANDAMENTO') btns.push('<button class="btn btn-secondary btn-sm" onclick="setEventoStatus(\'' + e.id + '\',\'EM_ANDAMENTO\')">Ativar</button>');
+    if (e.statusConcurso !== 'FINALIZADO') btns.push('<button class="btn btn-ghost btn-sm" onclick="setEventoStatus(\'' + e.id + '\',\'FINALIZADO\')">Encerrar</button>');
+    return btns.join(' ');
+  }
+
+  window.abrirEdicaoEvento = function (eventoId) {
+    Promise.all([
+      Api.call('admin_get_evento_config', { event_id: eventoId }),
+      Api.call('get_grupos_globais', {})
+    ]).then(function (results) {
+      var res = results[0];
+      var r = res.regras || {};
+      gruposCache = results[1].grupos || [];
+
+      document.getElementById('editEventoId').value = eventoId;
+      document.getElementById('editEventoNome').value = res.nome || '';
+      document.getElementById('editDataInicio').value = res.dataInicio || '';
+      document.getElementById('editDataFim').value = res.dataFim || '';
+      document.getElementById('editNotaMin').value = r.notaMin != null ? r.notaMin : 8;
+      document.getElementById('editNotaMax').value = r.notaMax != null ? r.notaMax : 10;
+      document.getElementById('editNotaTipo').value = r.notaTipo || 'fracionada';
+      document.getElementById('editRegraDescarte').value = r.regraDescarte || 'sem_descarte';
+      document.getElementById('editMinCaracteres').value = r.minCaracteresJustificativa != null ? r.minCaracteresJustificativa : 10;
+      document.getElementById('editAssinaturaObrigatoria').checked = r.assinaturaObrigatoria !== false;
+
+      var grupoIds = res.grupoIds || [];
+      var checklist = document.getElementById('eventoGruposChecklist');
+      if (!gruposCache.length) {
+        checklist.innerHTML = '<p class="card__desc">Nenhum grupo cadastrado ainda. Cadastre em "Candidatas / Grupos".</p>';
+      } else {
+        checklist.innerHTML = gruposCache.map(function (g) {
+          var checked = grupoIds.indexOf(g.id) !== -1 ? 'checked' : '';
+          return '<label style="display:flex;align-items:center;gap:8px;padding:6px 0;font-size:13px;">' +
+            '<input type="checkbox" value="' + g.id + '" style="width:auto;" ' + checked + '>' + g.nome + ' <span style="color:var(--ink-faint);">— ' + g.cidade + '/' + g.estado + '</span></label>';
+        }).join('');
+      }
+
+      document.getElementById('modalEditarEvento').classList.add('is-open');
+    });
+  };
+
+  document.getElementById('btnSalvarEdicaoEvento').addEventListener('click', function () {
+    var eventoId = document.getElementById('editEventoId').value;
+    var regras = {
+      notaMin: Number(document.getElementById('editNotaMin').value),
+      notaMax: Number(document.getElementById('editNotaMax').value),
+      notaTipo: document.getElementById('editNotaTipo').value,
+      regraDescarte: document.getElementById('editRegraDescarte').value,
+      minCaracteresJustificativa: Number(document.getElementById('editMinCaracteres').value) || 0,
+      assinaturaObrigatoria: document.getElementById('editAssinaturaObrigatoria').checked
+    };
+
+    if (regras.notaMax <= regras.notaMin) { Toast.error('A nota máxima deve ser maior que a mínima.'); return; }
+
+    var valoresGerados = MockDB.gerarValoresNota(regras.notaMin, regras.notaMax, regras.notaTipo);
+    if (!valoresGerados.length) { Toast.error('Essa combinação de nota mínima/máxima não gera nenhum valor válido.'); return; }
+
+    var dataInicio = document.getElementById('editDataInicio').value;
+    var dataFim = document.getElementById('editDataFim').value;
+    if (dataInicio && dataFim && dataFim < dataInicio) { Toast.error('A data final não pode ser antes da data inicial.'); return; }
+
+    var grupoIds = Array.prototype.slice.call(document.querySelectorAll('#eventoGruposChecklist input:checked')).map(function (cb) { return cb.value; });
+
+    Api.call('admin_save_evento_config', {
+      event_id: eventoId,
+      nome: document.getElementById('editEventoNome').value.trim(),
+      dataInicio: dataInicio,
+      dataFim: dataFim,
+      regras: regras,
+      grupoIds: grupoIds,
+      usuario: session.nome,
+      perfil: 'ADMIN'
+    }).then(function (res) {
+      res.success ? Toast.success(res.message) : Toast.error(res.message);
+      document.getElementById('modalEditarEvento').classList.remove('is-open');
+      loadEventos();
+    });
+  });
+
+  window.setEventoStatus = function (eventoId, status) {
+    Api.call('admin_set_status_concurso', { event_id: eventoId, status: status }).then(function (res) {
+      res.success ? Toast.success(res.message) : Toast.error(res.message);
+      loadEventos();
+    });
+  };
+
+  /* ---------------- usuários ---------------- */
+
+  var usuariosCache = [];
+
+  function loadUsuarios() {
+    Api.call('admin_list_usuarios', {}).then(function (res) {
+      usuariosCache = res.usuarios || [];
+      var body = document.getElementById('usuariosBody');
+      body.innerHTML = usuariosCache.map(function (u) {
+        var ativo = u.ativo !== false;
+        var statusBadge = ativo ? '<span class="badge badge-active"><span class="badge-dot"></span>Ativo</span>' : '<span class="badge badge-danger">Inativo</span>';
+        var toggleBtn = ativo
+          ? '<button class="btn btn-ghost btn-sm" onclick="alternarStatusUsuario(\'' + u.codigo + '\')">Desativar</button>'
+          : '<button class="btn btn-secondary btn-sm" onclick="alternarStatusUsuario(\'' + u.codigo + '\')">Ativar</button>';
+        return '<tr' + (ativo ? '' : ' style="opacity:.6;"') + '><td class="mono">' + u.codigo + '</td><td>' + u.nome + '</td><td>' + Session.roleLabel(u.perfil) + '</td><td>' + (u.eventos || []).length + ' evento(s)</td>' +
+          '<td>' + statusBadge + '</td>' +
+          '<td><button class="btn btn-secondary btn-sm" onclick="editarUsuario(\'' + u.codigo + '\')">Editar</button> ' +
+          toggleBtn + ' ' +
+          '<button class="btn btn-ghost btn-sm" onclick="removerUsuario(\'' + u.codigo + '\')">Remover</button></td></tr>';
+      }).join('');
+    });
+  }
+
+  window.alternarStatusUsuario = function (codigo) {
+    var u = usuariosCache.find(function (x) { return x.codigo === codigo; });
+    if (!u) return;
+    var novoAtivo = u.ativo === false;
+    Api.call('admin_save_usuario', { codigo: u.codigo, nome: u.nome, perfil: u.perfil, eventos: u.eventos || [], ativo: novoAtivo }).then(function (res) {
+      res.success ? Toast.success(novoAtivo ? 'Usuário ativado' : 'Usuário desativado') : Toast.error(res.message);
+      loadUsuarios();
+    });
+  };
+
+  window.editarUsuario = function (codigo) {
+    var u = usuariosCache.find(function (x) { return x.codigo === codigo; });
+    if (!u) return;
+    document.getElementById('modalUsuarioTitulo').textContent = 'Editar usuário';
+    document.getElementById('userCodigo').value = u.codigo;
+    document.getElementById('userCodigo').disabled = true;
+    document.getElementById('userNome').value = u.nome;
+    document.getElementById('userPerfil').value = u.perfil;
+    document.getElementById('userAtivo').checked = u.ativo !== false;
+    renderUserEventosChecklist(u.eventos || []);
+    document.getElementById('modalUsuario').dataset.editingCodigo = u.codigo;
+    document.getElementById('modalUsuario').classList.add('is-open');
+  };
+
+  window.removerUsuario = function (codigo) {
+    Api.call('admin_remove_usuario', { codigo: codigo }).then(function (res) {
+      res.success ? Toast.success(res.message) : Toast.error(res.message);
+      loadUsuarios();
+    });
+  };
+
+  /* ---------------- quesitos (catálogo global) ---------------- */
+
+  var quesitosState = [];
+
+  function loadQuesitos() {
+    Promise.all([
+      Api.call('get_quesitos_globais', {}),
+      Api.call('admin_list_eventos', {})
+    ]).then(function (results) {
+      quesitosState = results[0].quesitos || [];
+      eventosCache = results[1].eventos || eventosCache;
+      renderQuesitos();
+    });
+  }
+
+  function renderQuesitos() {
+    var body = document.getElementById('quesitosBody');
+    if (!quesitosState.length) { body.innerHTML = '<tr><td colspan="5" class="table-empty">Nenhum quesito cadastrado.</td></tr>'; return; }
+    body.innerHTML = quesitosState.sort(function (a, b) { return a.ordem - b.ordem; }).map(function (q, i) {
+      var validoSelect = '<select onchange="updateQuesitoValidade(' + i + ',this.value)" style="margin-bottom:6px;">' +
+        '<option value="todos" ' + (q.validoParaTodos ? 'selected' : '') + '>Todos os eventos</option>' +
+        '<option value="especificos" ' + (!q.validoParaTodos ? 'selected' : '') + '>Eventos específicos</option>' +
+        '</select>';
+
+      var eventosMultiSelect = '';
+      if (!q.validoParaTodos) {
+        eventosMultiSelect = '<select multiple size="3" style="font-size:12px;" onchange="updateQuesitoEventos(' + i + ',this)">' +
+          eventosCache.map(function (e) {
+            var sel = (q.eventos || []).indexOf(e.id) !== -1 ? 'selected' : '';
+            return '<option value="' + e.id + '" ' + sel + '>' + e.nome + '</option>';
+          }).join('') + '</select>';
+      }
+
+      return '<tr>' +
+        '<td><input type="number" value="' + q.ordem + '" style="width:70px;" onchange="updateQuesito(' + i + ',\'ordem\',this.value)"></td>' +
+        '<td><input type="text" value="' + q.nome + '" style="text-transform:uppercase;" oninput="autoUpper(this);updateQuesito(' + i + ',\'nome\',this.value)"></td>' +
+        '<td><input type="number" step="0.1" value="' + q.peso + '" style="width:80px;" onchange="updateQuesito(' + i + ',\'peso\',this.value)"></td>' +
+        '<td>' + validoSelect + eventosMultiSelect + '</td>' +
+        '<td><button class="btn btn-ghost btn-sm" onclick="removerQuesito(' + i + ')">Remover</button></td>' +
+        '</tr>';
+    }).join('');
+  }
+
+  window.updateQuesito = function (i, field, value) {
+    quesitosState[i][field] = (field === 'nome') ? value : Number(value);
+  };
+
+  window.updateQuesitoValidade = function (i, value) {
+    quesitosState[i].validoParaTodos = (value === 'todos');
+    if (quesitosState[i].validoParaTodos) quesitosState[i].eventos = [];
+    renderQuesitos();
+  };
+
+  window.updateQuesitoEventos = function (i, selectEl) {
+    quesitosState[i].eventos = Array.prototype.slice.call(selectEl.selectedOptions).map(function (o) { return o.value; });
+  };
+
+  window.removerQuesito = function (i) {
+    quesitosState.splice(i, 1);
+    renderQuesitos();
+  };
+
+  document.getElementById('btnNovoQuesito').addEventListener('click', function () {
+    quesitosState.push({ id: 'q' + (Date.now()), nome: '', peso: 1, ordem: quesitosState.length + 1, validoParaTodos: true, eventos: [] });
+    renderQuesitos();
+  });
+
+  document.getElementById('btnSalvarQuesitos').addEventListener('click', function () {
+    Api.call('admin_save_quesitos', { quesitos: quesitosState }).then(function (res) {
+      res.success ? Toast.success(res.message) : Toast.error(res.message);
+    });
+  });
+
+  /* ---------------- candidatas / grupos (catálogo global) ---------------- */
+
+  var candidatasState = [];
+  var candidatasFiltro = '';
+  var candidatasSort = { campo: 'nome', dir: 'asc' };
+
+  function loadCandidatas() {
+    Api.call('get_grupos_globais', {}).then(function (res) {
+      candidatasState = res.grupos || [];
+      renderCandidatas();
+    });
+  }
+
+  window.ordenarCandidatas = function (campo) {
+    if (candidatasSort.campo === campo) {
+      candidatasSort.dir = candidatasSort.dir === 'asc' ? 'desc' : 'asc';
+    } else {
+      candidatasSort.campo = campo;
+      candidatasSort.dir = 'asc';
+    }
+    renderCandidatas();
+  };
+
+  function atualizarIconesOrdenacao() {
+    ['nome', 'cidade', 'estado'].forEach(function (campo) {
+      var el = document.getElementById('sortIcon-' + campo);
+      if (!el) return;
+      el.textContent = candidatasSort.campo === campo ? (candidatasSort.dir === 'asc' ? '▲' : '▼') : '';
+    });
+  }
+
+  function renderCandidatas() {
+    var body = document.getElementById('candidatasBody');
+    var termo = candidatasFiltro.trim().toLowerCase();
+
+    var visiveis = candidatasState.filter(function (c) {
+      if (!termo) return true;
+      return (c.nome || '').toLowerCase().indexOf(termo) !== -1 ||
+        (c.cidade || '').toLowerCase().indexOf(termo) !== -1 ||
+        (c.estado || '').toLowerCase().indexOf(termo) !== -1;
+    });
+
+    var campo = candidatasSort.campo;
+    visiveis.sort(function (a, b) {
+      var av = String(a[campo] || '').toLowerCase();
+      var bv = String(b[campo] || '').toLowerCase();
+      if (av < bv) return candidatasSort.dir === 'asc' ? -1 : 1;
+      if (av > bv) return candidatasSort.dir === 'asc' ? 1 : -1;
+      return 0;
+    });
+
+    atualizarIconesOrdenacao();
+
+    if (!candidatasState.length) { body.innerHTML = '<tr><td colspan="4" class="table-empty">Nenhum grupo cadastrado.</td></tr>'; return; }
+    if (!visiveis.length) { body.innerHTML = '<tr><td colspan="4" class="table-empty">Nenhum grupo encontrado para esse filtro.</td></tr>'; return; }
+
+    body.innerHTML = visiveis.map(function (c) {
+      return '<tr>' +
+        '<td><input type="text" value="' + c.nome + '" style="text-transform:uppercase;" oninput="autoUpper(this);updateCandidataField(\'' + c.id + '\',\'nome\',this.value)"></td>' +
+        '<td><input type="text" value="' + (c.cidade || '') + '" style="text-transform:uppercase;" oninput="autoUpper(this);updateCandidataField(\'' + c.id + '\',\'cidade\',this.value)"></td>' +
+        '<td><input type="text" value="' + c.estado + '" style="width:70px;text-transform:uppercase;" maxlength="2" oninput="autoUpper(this);updateCandidataField(\'' + c.id + '\',\'estado\',this.value)"></td>' +
+        '<td><button class="btn btn-ghost btn-sm" onclick="removerCandidataById(\'' + c.id + '\')">Remover</button></td>' +
+        '</tr>';
+    }).join('');
+  }
+
+  window.updateCandidataField = function (id, field, value) {
+    var item = candidatasState.find(function (c) { return c.id === id; });
+    if (item) item[field] = value;
+  };
+
+  window.removerCandidataById = function (id) {
+    candidatasState = candidatasState.filter(function (c) { return c.id !== id; });
+    renderCandidatas();
+  };
+
+  document.getElementById('btnNovaCandidata').addEventListener('click', function () {
+    candidatasState.push({ id: 'c' + Date.now(), nome: '', cidade: '', estado: '' });
+    renderCandidatas();
+  });
+
+  document.getElementById('btnSalvarCandidatas').addEventListener('click', function () {
+    Api.call('admin_save_candidatas', { grupos: candidatasState }).then(function (res) {
+      res.success ? Toast.success(res.message) : Toast.error(res.message);
+    });
+  });
+</script>
+</body>
+</html>

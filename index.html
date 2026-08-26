@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Avaliação Digital 2.0 — Entrar</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;600;700;800&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg-deep:#123832;
+    --bg-mid:#1f5b4d;
+    --bg-mid-2:#2c7a5f;
+    --paper:#faf5e7;
+    --paper-shade:#efe6cf;
+    --ink:#173028;
+    --ink-soft:#3f564c;
+    --gold:#e3a53d;
+    --gold-deep:#c6862a;
+    --coral:#e2604a;
+    --thread:rgba(250,245,231,0.35);
+    --focus:#f2c568;
+  }
+
+  *{ box-sizing:border-box; }
+  html,body{ margin:0; height:100%; }
+
+  body{
+    font-family:'Inter',system-ui,sans-serif;
+    color:var(--paper);
+    background:
+      radial-gradient(60% 50% at 18% 8%, rgba(255,255,255,0.06), transparent 60%),
+      linear-gradient(160deg, var(--bg-deep) 0%, var(--bg-mid) 52%, var(--bg-mid-2) 100%);
+    min-height:100%;
+    overflow-x:hidden;
+    position:relative;
+  }
+
+  .texture{
+    position:fixed; inset:0; pointer-events:none; z-index:0; opacity:0.05;
+    background-image:
+      linear-gradient(45deg, var(--paper) 25%, transparent 25%),
+      linear-gradient(-45deg, var(--paper) 25%, transparent 25%);
+    background-size:64px 64px;
+  }
+
+  .garland{ position:relative; z-index:2; width:100%; padding:22px 0 0; display:flex; justify-content:center; }
+  .garland__thread{ position:absolute; top:34px; left:4%; right:4%; height:2px; background:var(--thread); border-radius:2px; }
+  .garland__row{ display:flex; gap:clamp(10px, 2.4vw, 26px); align-items:flex-start; padding:0 4%; width:100%; max-width:1040px; justify-content:space-between; }
+
+  .pennant{
+    width:clamp(14px, 2vw, 22px); height:clamp(18px, 2.6vw, 28px);
+    clip-path:polygon(0 0, 100% 0, 50% 100%);
+    transform-origin:top center; animation:sway 4.2s ease-in-out infinite; opacity:0.9;
+  }
+  .pennant:nth-child(odd){ background:var(--gold); animation-delay:.15s; }
+  .pennant:nth-child(3n){ background:var(--coral); animation-delay:.55s; }
+  .pennant:nth-child(4n){ background:var(--paper); animation-delay:.9s; }
+  .pennant:nth-child(5n){ animation-delay:1.3s; }
+  @keyframes sway{ 0%,100%{ transform:rotate(-4deg); } 50%{ transform:rotate(4deg); } }
+
+  .stage{
+    position:relative; z-index:2; min-height:calc(100vh - 60px);
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    padding:32px 20px 56px; gap:clamp(28px, 5vw, 48px);
+  }
+
+  .kicker{
+    font-family:'JetBrains Mono', monospace; font-size:12px; letter-spacing:0.22em;
+    text-transform:uppercase; color:var(--gold); text-align:center; opacity:0.9;
+  }
+  .kicker span{ color:rgba(250,245,231,0.55); }
+
+  .phrase-stage{
+    position:relative; width:min(680px, 92vw); min-height:clamp(72px, 12vw, 100px);
+    display:flex; align-items:center; justify-content:center; text-align:center;
+  }
+  .phrase{
+    position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
+    font-family:'Baloo 2', sans-serif; font-weight:600; font-size:clamp(20px, 3.4vw, 32px);
+    line-height:1.25; color:var(--paper); opacity:0; transform:translateY(10px);
+    transition:opacity 1s ease, transform 1s ease; padding:0 8px;
+  }
+  .phrase.is-active{ opacity:1; transform:translateY(0); }
+  .phrase em{ font-style:normal; color:var(--gold); display:inline-block; margin:0 0.16em; }
+
+  .flagcard-wrap{ position:relative; filter:drop-shadow(0 22px 40px rgba(9, 30, 25, 0.45)); }
+  .flagcard-wrap::before{
+    content:""; position:absolute; left:50%; top:-26px; width:2px; height:26px;
+    background:var(--thread); transform:translateX(-50%);
+  }
+  .flagcard{
+    width:min(380px, 88vw);
+    background:linear-gradient(180deg, var(--paper) 0%, var(--paper-shade) 100%);
+    clip-path:polygon(0 0, 100% 0, 100% 84%, 50% 100%, 0 84%);
+    padding:38px 32px 64px; color:var(--ink); text-align:center;
+  }
+  .flagcard__badge{ width:46px; height:46px; margin:0 auto 14px; border-radius:50%; background:var(--bg-mid); display:flex; align-items:center; justify-content:center; }
+  .flagcard__badge svg{ width:24px; height:24px; }
+  .flagcard__title{ font-family:'Baloo 2', sans-serif; font-weight:700; font-size:22px; margin:0 0 6px; color:var(--ink); }
+  .flagcard__subtitle{ font-size:13.5px; color:var(--ink-soft); margin:0 0 26px; line-height:1.5; }
+
+  .field{ text-align:left; margin-bottom:8px; }
+  .field label{ display:block; font-size:12px; font-weight:600; letter-spacing:0.06em; text-transform:uppercase; color:var(--ink-soft); margin-bottom:8px; }
+
+  .code-input{
+    width:100%; font-family:'JetBrains Mono', monospace; font-size:19px; font-weight:600;
+    letter-spacing:0.28em; text-align:center; text-transform:uppercase; color:var(--ink);
+    background:#fff; border:2px solid #e4dabd; border-radius:12px; padding:14px 12px; outline:none;
+    transition:border-color .18s ease, box-shadow .18s ease;
+  }
+  .code-input::placeholder{ letter-spacing:0.05em; font-weight:500; color:#b9ae8c; text-transform:none; }
+  .code-input:focus{ border-color:var(--gold-deep); box-shadow:0 0 0 4px rgba(230,167,61,0.25); }
+  .code-input.has-error{ border-color:var(--coral); box-shadow:0 0 0 4px rgba(226,96,74,0.18); }
+
+  .field-msg{ min-height:18px; font-size:12.5px; text-align:left; margin:8px 2px 18px; color:var(--coral); font-weight:500; }
+
+  .submit-btn{
+    width:100%; border:none; border-radius:12px; padding:14px 16px; font-family:'Inter', sans-serif;
+    font-size:15px; font-weight:700; letter-spacing:0.01em; color:#20120a;
+    background:linear-gradient(180deg, var(--gold) 0%, var(--gold-deep) 100%); cursor:pointer;
+    display:flex; align-items:center; justify-content:center; gap:8px;
+    transition:transform .12s ease; box-shadow:0 10px 20px rgba(198,134,42,0.35);
+  }
+  .submit-btn:hover{ transform:translateY(-1px); }
+  .submit-btn[disabled]{ opacity:0.7; cursor:default; transform:none; }
+
+  .spinner{
+    width:15px; height:15px; border-radius:50%; border:2.5px solid rgba(32,18,10,0.25);
+    border-top-color:#20120a; animation:spin .7s linear infinite; display:none;
+  }
+  .submit-btn.is-loading .spinner{ display:inline-block; }
+  .submit-btn.is-loading .submit-btn__label{ opacity:0.75; }
+  @keyframes spin{ to{ transform:rotate(360deg); } }
+
+  .help-link{ display:block; margin-top:16px; font-size:12.5px; color:var(--ink-soft); text-decoration:none; border-bottom:1px dashed transparent; }
+  .help-link:hover{ border-color:var(--ink-soft); }
+
+  .demo-note{
+    max-width:380px; text-align:center; font-size:11.5px; color:rgba(250,245,231,0.65);
+    background:rgba(0,0,0,0.15); border-radius:10px; padding:10px 14px; line-height:1.5;
+  }
+  .demo-note code{ color:var(--gold); }
+
+  .footer{ position:relative; z-index:2; text-align:center; font-size:11.5px; color:rgba(250,245,231,0.55); padding:0 20px 26px; }
+  .footer strong{ color:rgba(250,245,231,0.8); }
+
+  :focus-visible{ outline:3px solid var(--focus); outline-offset:2px; }
+
+  @media (prefers-reduced-motion: reduce){
+    .pennant{ animation:none; }
+    .phrase{ transition:opacity .4s ease; }
+  }
+  @media (max-width:420px){ .flagcard{ padding:32px 22px 54px; } }
+</style>
+</head>
+<body>
+
+  <div class="texture"></div>
+
+  <div class="garland">
+    <div class="garland__thread"></div>
+    <div class="garland__row" id="garlandRow"></div>
+  </div>
+
+  <main class="stage">
+    <div class="kicker">Conexão Junina <span>·</span> Avaliação Digital 2.0</div>
+
+    <div class="phrase-stage" id="phraseStage" aria-live="polite"></div>
+
+    <div class="flagcard-wrap">
+      <div class="flagcard">
+        <div class="flagcard__badge" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M4 3v18" stroke="#faf5e7" stroke-width="2" stroke-linecap="round"/>
+            <path d="M4 4h14l-3 4 3 4H4" fill="#e3a53d" stroke="#e3a53d" stroke-width="1.5" stroke-linejoin="round"/>
+          </svg>
+        </div>
+
+        <h1 class="flagcard__title">Entrar no sistema</h1>
+        <p class="flagcard__subtitle">Digite o código de acesso que a organização do seu evento te entregou.</p>
+
+        <form id="loginForm" novalidate>
+          <div class="field">
+            <label for="codeInput">Código de acesso</label>
+            <input type="text" id="codeInput" class="code-input" placeholder="EX: AVAL-2027" autocomplete="off" autocapitalize="characters" spellcheck="false">
+          </div>
+          <p class="field-msg" id="fieldMsg" role="status"></p>
+
+          <button type="submit" class="submit-btn" id="submitBtn">
+            <span class="spinner" aria-hidden="true"></span>
+            <span class="submit-btn__label">Entrar</span>
+          </button>
+
+          <a href="#" class="help-link" id="helpLink">Não tem um código? Fale com a organização do seu evento.</a>
+        </form>
+      </div>
+    </div>
+
+    <p class="demo-note" id="demoNote" style="display:none">
+      Modo demonstração ativo. Experimente: <code>ADM-2027</code> · <code>PRES-2027</code> · <code>AVAL-2027</code> · <code>CONS-2027</code>
+    </p>
+  </main>
+
+  <p class="footer">Feito para celebrar o São João com <strong>transparência, segurança e ética</strong>.</p>
+
+  <script src="assets/js/config.js?v=5"></script>
+  <script src="assets/js/mock-data.js?v=5"></script>
+  <script src="assets/js/api.js?v=5"></script>
+  <script src="assets/js/session.js?v=5"></script>
+  <script>
+    // garland
+    var garlandRow = document.getElementById('garlandRow');
+    var flagCount = window.innerWidth < 560 ? 9 : 17;
+    for (var i = 0; i < flagCount; i++) {
+      var pel = document.createElement('span');
+      pel.className = 'pennant';
+      garlandRow.appendChild(pel);
+    }
+
+    // rotating phrases
+    var phrases = [
+      'Cada nota é um compromisso com a verdade do arraiá.',
+      'Avaliar com <em>ética</em> é celebrar a tradição de todos.',
+      '<em>Transparência</em> é o que dá valor à apuração.',
+      'Sua assinatura é a garantia de um julgamento justo.',
+      '<em>Segurança</em> em cada voto, respeito a cada apresentação.',
+      'Aqui, cada nota é dada com responsabilidade e coração.'
+    ];
+    var phraseStage = document.getElementById('phraseStage');
+    phrases.forEach(function (text, i) {
+      var el = document.createElement('p');
+      el.className = 'phrase' + (i === 0 ? ' is-active' : '');
+      el.innerHTML = text;
+      phraseStage.appendChild(el);
+    });
+    var phraseEls = phraseStage.querySelectorAll('.phrase');
+    var current = 0;
+    var reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (!reduceMotion) {
+      setInterval(function () {
+        phraseEls[current].classList.remove('is-active');
+        current = (current + 1) % phraseEls.length;
+        phraseEls[current].classList.add('is-active');
+      }, 4200);
+    }
+
+    if (Api.isDemo()) {
+      document.getElementById('demoNote').style.display = 'block';
+    }
+
+    // if already logged in, go straight to the right panel
+    (function () {
+      var existing = Session.load();
+      if (existing && existing.role) {
+        window.location.href = existing.role + ".html";
+      }
+    })();
+
+    var form = document.getElementById('loginForm');
+    var input = document.getElementById('codeInput');
+    var msg = document.getElementById('fieldMsg');
+    var btn = document.getElementById('submitBtn');
+
+    input.addEventListener('input', function () {
+      input.classList.remove('has-error');
+      msg.textContent = '';
+    });
+
+    form.addEventListener('submit', function (e) {
+      e.preventDefault();
+      var code = input.value.trim().toUpperCase();
+
+      if (!code) {
+        input.classList.add('has-error');
+        msg.textContent = 'Informe o código antes de entrar.';
+        input.focus();
+        return;
+      }
+
+      btn.disabled = true;
+      btn.classList.add('is-loading');
+      msg.textContent = '';
+
+      Api.call('login', { codigo: code }).then(function (res) {
+        btn.disabled = false;
+        btn.classList.remove('is-loading');
+
+        if (!res.success) {
+          input.classList.add('has-error');
+          msg.textContent = res.message || 'Código não reconhecido.';
+          input.focus();
+          return;
+        }
+
+        Session.save({
+          codigo: res.usuario.codigo,
+          nome: res.usuario.nome,
+          role: res.usuario.perfil,
+          eventoId: res.usuario.eventoId
+        });
+
+        window.location.href = res.usuario.perfil + '.html';
+      });
+    });
+
+    document.getElementById('helpLink').addEventListener('click', function (e) {
+      e.preventDefault();
+      msg.style.color = '#3f564c';
+      msg.textContent = 'Peça seu código de acesso ao administrador do seu evento.';
+    });
+  </script>
+</body>
+</html>

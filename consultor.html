@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Acompanhamento — Avaliação Digital 2.0</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;700;800&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/css/style.css?v=3">
+</head>
+<body>
+
+<div class="sidebar-overlay" data-sidebar-overlay></div>
+
+<div class="app-shell">
+
+  <aside class="app-sidebar">
+    <div class="app-sidebar__brand">
+      <div class="app-sidebar__brand-mark">🪁</div>
+      <div class="app-sidebar__brand-text">
+        <strong>Avaliação Digital</strong>
+        <span>Conexão Junina · 2.0</span>
+      </div>
+    </div>
+
+    <div class="app-sidebar__event">
+      <p class="app-sidebar__event-label">Perfil</p>
+      <p class="app-sidebar__event-name">Acompanhamento multi-evento</p>
+    </div>
+
+    <nav class="app-nav" data-app-nav></nav>
+
+    <div class="app-sidebar__foot">
+      <div class="app-user">
+        <div class="app-user__avatar" data-user-avatar>—</div>
+        <div>
+          <div class="app-user__name" data-user-name>—</div>
+          <div class="app-user__role" data-user-role>—</div>
+        </div>
+      </div>
+      <button class="logout-btn" data-logout>Sair do sistema</button>
+    </div>
+  </aside>
+
+  <div class="app-main">
+    <div class="mobile-topbar">
+      <strong>Avaliação Digital</strong>
+      <button class="mobile-topbar__toggle" data-sidebar-toggle aria-label="Abrir menu">☰</button>
+    </div>
+
+    <header class="app-topbar">
+      <div>
+        <h1 id="pageTitle">Acompanhamento</h1>
+        <p class="app-topbar__sub" id="pageSubtitle">Escolha o evento que deseja acompanhar.</p>
+      </div>
+    </header>
+
+    <div class="app-content">
+
+      <!-- ===================== SELEÇÃO DE EVENTO ===================== -->
+      <div id="eventPickerView">
+        <div class="card">
+          <div class="card__head">
+            <div>
+              <h2 class="card__title">Eventos disponíveis</h2>
+              <p class="card__desc">Clique no nome do evento para abrir o acompanhamento.</p>
+            </div>
+          </div>
+          <div id="eventPickerList"></div>
+        </div>
+      </div>
+
+      <!-- ===================== DASHBOARD DO EVENTO SELECIONADO ===================== -->
+      <div id="dashboardView" style="display:none;">
+        <button class="btn btn-ghost btn-sm" id="btnVoltarEventos" style="margin-bottom:16px;">← Selecionar outro evento</button>
+
+        <div class="status-banner" id="statusBanner">Carregando status do concurso…</div>
+
+        <div class="tabs">
+          <button class="tab-btn is-active" data-tab="andamento">Andamento</button>
+          <button class="tab-btn" data-tab="recebidas">Notas recebidas</button>
+          <button class="tab-btn" data-tab="validadas">Notas validadas</button>
+          <button class="tab-btn" data-tab="ranking">Ranking oficial</button>
+          <button class="tab-btn" data-tab="logs">Logs</button>
+        </div>
+
+        <section class="tab-panel is-active" id="panel-andamento">
+          <div class="card">
+            <div class="card__head"><div><h2 class="card__title">Fila de candidatas</h2></div></div>
+            <div class="table-wrap">
+              <table>
+                <thead><tr><th>Ordem</th><th>Candidata</th><th>Cidade</th><th>Estado</th><th>Status</th></tr></thead>
+                <tbody id="filaBody"></tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <section class="tab-panel" id="panel-recebidas">
+          <div class="card">
+            <div class="card__head"><div><h2 class="card__title">Notas recebidas</h2></div></div>
+            <div id="recebidasContainer"></div>
+          </div>
+        </section>
+
+        <section class="tab-panel" id="panel-validadas">
+          <div class="card">
+            <div class="card__head"><div><h2 class="card__title">Notas validadas</h2></div></div>
+            <div id="validadasContainer"></div>
+          </div>
+        </section>
+
+        <section class="tab-panel" id="panel-ranking">
+          <div class="card">
+            <div class="card__head"><div><h2 class="card__title">Ranking oficial</h2></div></div>
+            <div class="table-wrap">
+              <table>
+                <thead id="rankingHead"></thead>
+                <tbody id="rankingBody"></tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <section class="tab-panel" id="panel-logs">
+          <div class="card">
+            <div class="card__head"><div><h2 class="card__title">Logs</h2></div></div>
+            <div class="table-wrap">
+              <table>
+                <thead><tr><th>Data/hora</th><th>Ação</th><th>Usuário</th><th>Detalhe</th></tr></thead>
+                <tbody id="logsBody"></tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script src="assets/js/config.js?v=5"></script>
+<script src="assets/js/mock-data.js?v=5"></script>
+<script src="assets/js/api.js?v=5"></script>
+<script src="assets/js/session.js?v=5"></script>
+<script src="assets/js/toast.js?v=5"></script>
+<script src="assets/js/shell.js?v=5"></script>
+<script>
+  var session = Session.require(['consultor', 'admin']);
+  if (session) { Shell.init(session); boot(); }
+  var EVT = null;
+  var refreshTimer = null;
+
+  function boot() {
+    document.querySelectorAll('.tab-btn').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        document.querySelectorAll('.tab-btn').forEach(function (b) { b.classList.remove('is-active'); });
+        document.querySelectorAll('.tab-panel').forEach(function (p) { p.classList.remove('is-active'); });
+        btn.classList.add('is-active');
+        document.getElementById('panel-' + btn.dataset.tab).classList.add('is-active');
+      });
+    });
+    document.getElementById('btnVoltarEventos').addEventListener('click', voltarParaEventos);
+    loadEventPicker();
+  }
+
+  var STATUS_LABEL = { A_INICIAR: 'A iniciar', EM_ANDAMENTO: 'Em andamento', FINALIZADO: 'Finalizado' };
+  var STATUS_CLASS = { A_INICIAR: 'badge-neutral', EM_ANDAMENTO: 'badge-active', FINALIZADO: 'badge-warn' };
+
+  function loadEventPicker() {
+    Api.call('list_accessible_eventos', { codigo: session.codigo, perfil: session.role }).then(function (res) {
+      var host = document.getElementById('eventPickerList');
+      var lista = res.eventos || [];
+
+      if (!lista.length) {
+        host.innerHTML = '<div class="empty-state"><h3>Nenhum evento disponível</h3><p>Fale com o administrador para liberar o acesso a um evento.</p></div>';
+        return;
+      }
+
+      host.innerHTML = lista.map(function (e) {
+        var periodo = (e.dataInicio ? formatarDataCurta(e.dataInicio) : '—') + ' até ' + (e.dataFim ? formatarDataCurta(e.dataFim) : '—');
+        return '<div style="display:flex;align-items:center;justify-content:space-between;gap:12px;border-top:1px solid var(--app-border);padding:16px 4px;">' +
+          '<div>' +
+          '<a href="#" onclick="selecionarEvento(\'' + e.id + '\',\'' + e.nome.replace(/'/g, "") + '\');return false;" style="font-family:\'Baloo 2\',sans-serif;font-weight:700;font-size:16px;color:var(--ink);text-decoration:none;">' + e.nome + '</a>' +
+          '<p class="card__desc" style="margin-top:4px;">' + e.candidatas + ' candidata(s) · ' + periodo + '</p>' +
+          '</div>' +
+          '<span class="badge ' + (STATUS_CLASS[e.statusConcurso] || 'badge-neutral') + '">' + (STATUS_LABEL[e.statusConcurso] || e.statusConcurso) + '</span>' +
+          '</div>';
+      }).join('');
+    });
+  }
+
+  function formatarDataCurta(iso) {
+    var d = new Date(iso);
+    if (isNaN(d.getTime())) return iso;
+    return d.toLocaleDateString('pt-BR');
+  }
+
+  window.selecionarEvento = function (id, nome) {
+    EVT = id;
+    document.getElementById('eventPickerView').style.display = 'none';
+    document.getElementById('dashboardView').style.display = 'block';
+    document.getElementById('pageTitle').textContent = nome;
+    document.getElementById('pageSubtitle').textContent = 'Visão somente leitura — sem permissão para alterar dados.';
+    refreshAll();
+    if (refreshTimer) clearInterval(refreshTimer);
+    refreshTimer = setInterval(refreshAll, 8000);
+  };
+
+  function voltarParaEventos() {
+    if (refreshTimer) { clearInterval(refreshTimer); refreshTimer = null; }
+    EVT = null;
+    document.getElementById('dashboardView').style.display = 'none';
+    document.getElementById('eventPickerView').style.display = 'block';
+    document.getElementById('pageTitle').textContent = 'Acompanhamento';
+    document.getElementById('pageSubtitle').textContent = 'Escolha o evento que deseja acompanhar.';
+    loadEventPicker();
+  }
+
+  function refreshAll() {
+    loadStatus(); loadFila(); loadRecebidas(); loadValidadas(); loadRanking(); loadLogs();
+  }
+
+  function loadStatus() {
+    Api.call('get_status_concurso', { event_id: EVT }).then(function (res) {
+      var banner = document.getElementById('statusBanner');
+      var map = {
+        A_INICIAR: ['status-aguardando', 'Status do concurso: A INICIAR'],
+        EM_ANDAMENTO: ['status-andamento', 'Status do concurso: EM ANDAMENTO'],
+        FINALIZADO: ['status-finalizado', 'Status do concurso: FINALIZADO']
+      };
+      var info = map[res.statusConcurso] || ['status-aguardando', 'Status do concurso: —'];
+      banner.className = 'status-banner ' + info[0];
+      banner.textContent = info[1];
+    });
+  }
+
+  function loadFila() {
+    Api.call('get_candidates_panel', { event_id: EVT }).then(function (res) {
+      var body = document.getElementById('filaBody');
+      var lista = res.candidatas || [];
+      if (!lista.length) { body.innerHTML = '<tr><td colspan="5" class="table-empty">Nenhuma candidata cadastrada.</td></tr>'; return; }
+      var map = { PENDENTE: 'Pendente', EM_AVALIACAO: 'Em avaliação', FINALIZADA: 'Finalizada', DESISTENTE: 'Desistente', DESCLASSIFICADA: 'Desclassificada' };
+      body.innerHTML = lista.sort(function (a, b) { return a.ordem - b.ordem; }).map(function (c) {
+        return '<tr><td>' + c.ordem + '</td><td>' + c.nome + '</td><td>' + (c.cidade || '') + '</td><td>' + c.estado + '</td><td>' + (map[c.flagEspecial] || map[c.statusAvaliacao] || c.statusAvaliacao) + '</td></tr>';
+      }).join('');
+    });
+  }
+
+  function loadRecebidas() {
+    Api.call('get_received_notes', { event_id: EVT }).then(function (res) {
+      var container = document.getElementById('recebidasContainer');
+      var candidatas = (res.candidatas || []).filter(function (c) { return c.votos.length; });
+      if (!candidatas.length) { container.innerHTML = '<div class="empty-state"><h3>Ainda sem votos</h3></div>'; return; }
+      container.innerHTML = candidatas.map(function (c) {
+        var rows = c.votos.map(function (v) {
+          return '<tr><td>' + v.avaliadorNome + '</td><td>' + v.quesitoId.toUpperCase() + '</td><td>' + Number(v.nota).toFixed(1) + '</td><td style="font-size:12.5px;">' + v.justificativa + '</td></tr>';
+        }).join('');
+        return '<h3 style="font-size:15px;margin:18px 0 8px;">' + c.nome + '</h3><div class="table-wrap"><table><thead><tr><th>Avaliador</th><th>Quesito</th><th>Nota</th><th>Justificativa</th></tr></thead><tbody>' + rows + '</tbody></table></div>';
+      }).join('');
+    });
+  }
+
+  function loadValidadas() {
+    Api.call('get_validated_table', { event_id: EVT }).then(function (res) {
+      var container = document.getElementById('validadasContainer');
+      var candidatas = res.candidatas || [];
+      if (!candidatas.length) { container.innerHTML = '<div class="empty-state"><h3>Nenhuma candidata auditada ainda</h3></div>'; return; }
+      container.innerHTML = candidatas.map(function (c) {
+        var blocos = c.detalhamento.map(function (q) {
+          var rows = q.votos.map(function (v) {
+            return '<tr' + (v.descartada ? ' style="opacity:.45;text-decoration:line-through;"' : '') + '><td>' + v.avaliador + '</td><td>' + Number(v.nota).toFixed(1) + '</td></tr>';
+          }).join('');
+          return '<div style="margin-bottom:10px;"><strong style="font-size:12.5px;">' + q.quesito + '</strong><div class="table-wrap"><table><tbody>' + rows + '</tbody></table></div></div>';
+        }).join('');
+        return '<h3 style="font-size:15px;margin:18px 0 8px;">' + c.nome + ' <span style="color:var(--ink-faint);font-weight:500;">— ' + (c.cidade || '') + '/' + c.estado + '</span></h3>' + blocos;
+      }).join('');
+    });
+  }
+
+  function loadRanking() {
+    Api.call('get_official_ranking', { event_id: EVT }).then(function (res) {
+      Api.call('get_quesitos', { event_id: EVT }).then(function (qres) {
+        var quesitos = qres.quesitos || [];
+        document.getElementById('rankingHead').innerHTML = '<tr><th>Pos.</th><th>Candidata</th><th>Cidade</th><th>Estado</th>' + quesitos.map(function (q) { return '<th>' + q.nome + '</th>'; }).join('') + '<th>Total</th><th>Observação</th></tr>';
+        var body = document.getElementById('rankingBody');
+        var ranking = res.ranking || [];
+        if (!ranking.length) { body.innerHTML = '<tr><td colspan="' + (quesitos.length + 6) + '" class="table-empty">Ranking oficial vazio.</td></tr>'; return; }
+        body.innerHTML = ranking.map(function (r, i) {
+          return '<tr><td>' + (i + 1) + '</td><td>' + r.nome + '</td><td>' + (r.cidade || '') + '</td><td>' + r.estado + '</td>' +
+            quesitos.map(function (q) { return '<td>' + (r.detalhamento[q.id] || 0) + '</td>'; }).join('') +
+            '<td><strong>' + r.total + '</strong></td><td style="font-size:12px;color:var(--ink-faint);">' + (r.observacao || '') + '</td></tr>';
+        }).join('');
+      });
+    });
+  }
+
+  function loadLogs() {
+    Api.call('get_logs', { event_id: EVT }).then(function (res) {
+      var body = document.getElementById('logsBody');
+      var lista = res.logs || [];
+      if (!lista.length) { body.innerHTML = '<tr><td colspan="4" class="table-empty">Sem registros.</td></tr>'; return; }
+      body.innerHTML = lista.map(function (l) {
+        return '<tr><td style="font-size:12px;">' + new Date(l.data).toLocaleString('pt-BR') + '</td><td>' + l.acao + '</td><td>' + l.usuario + '</td><td style="font-size:12.5px;">' + l.detalhe + '</td></tr>';
+      }).join('');
+    });
+  }
+</script>
+</body>
+</html>

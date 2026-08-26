@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Telão — Avaliação Digital 2.0</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;700;800&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg-deep:#0e2f2a; --bg-mid:#1f5b4d; --bg-mid-2:#2c7a5f;
+    --paper:#faf5e7; --gold:#e3a53d; --gold-deep:#c6862a; --coral:#e2604a;
+  }
+  *{ box-sizing:border-box; }
+  html,body{ margin:0; height:100%; }
+  body{
+    font-family:'Inter', sans-serif; color:var(--paper);
+    background:radial-gradient(70% 60% at 50% 0%, rgba(255,255,255,0.05), transparent 60%),
+      linear-gradient(160deg, var(--bg-deep) 0%, var(--bg-mid) 55%, var(--bg-mid-2) 100%);
+    min-height:100%;
+    display:flex; flex-direction:column; align-items:center;
+    padding:40px 24px 90px;
+    overflow-x:hidden;
+  }
+
+  .kicker{
+    font-family:'JetBrains Mono', monospace; font-size:14px; letter-spacing:0.2em;
+    text-transform:uppercase; color:var(--gold); margin-bottom:6px;
+  }
+
+  h1{
+    font-family:'Baloo 2', sans-serif; font-weight:800; font-size:clamp(28px, 4vw, 46px);
+    margin:0 0 36px; text-align:center;
+  }
+
+  .board{
+    width:min(920px, 94vw);
+    display:flex; flex-direction:column; gap:14px;
+  }
+
+  .row{
+    display:flex; align-items:center; gap:18px;
+    background:rgba(0,0,0,0.18);
+    border:1px solid rgba(255,255,255,0.08);
+    border-radius:16px;
+    padding:16px 22px;
+    opacity:0;
+    transform:translateY(14px);
+    transition:opacity .5s ease, transform .5s ease, background .3s ease;
+  }
+
+  .row.is-revealed{ opacity:1; transform:translateY(0); }
+  .row.is-first{ background:linear-gradient(90deg, rgba(227,165,61,0.28), rgba(0,0,0,0.18)); border-color:rgba(227,165,61,0.45); }
+
+  .row__pos{
+    font-family:'Baloo 2', sans-serif; font-weight:800; font-size:26px;
+    width:52px; text-align:center; color:var(--gold); flex-shrink:0;
+  }
+
+  .row__name{ flex:1; min-width:0; }
+  .row__name strong{ display:block; font-size:18px; }
+  .row__name span{ font-size:12.5px; color:rgba(250,245,231,0.6); }
+
+  .row__total{
+    font-family:'JetBrains Mono', monospace; font-weight:600; font-size:20px;
+    color:var(--paper); flex-shrink:0;
+  }
+
+  .row.is-hidden .row__name strong{ color:rgba(250,245,231,0.35); }
+  .row.is-hidden .row__total{ color:rgba(250,245,231,0.25); }
+
+  .empty{
+    text-align:center; color:rgba(250,245,231,0.6); margin-top:60px; font-size:16px;
+  }
+
+  .controls{
+    position:fixed; bottom:16px; right:16px;
+    display:flex; gap:8px;
+    opacity:0.55;
+    transition:opacity .2s ease;
+  }
+  .controls:hover{ opacity:1; }
+
+  .controls button{
+    font-family:'Inter', sans-serif; font-size:12px; font-weight:600;
+    border:1px solid rgba(255,255,255,0.25); background:rgba(0,0,0,0.35); color:var(--paper);
+    padding:8px 12px; border-radius:8px; cursor:pointer;
+  }
+  .controls button:hover{ background:rgba(0,0,0,0.55); }
+</style>
+</head>
+<body>
+
+  <p class="kicker">Conexão Junina · Avaliação Digital 2.0</p>
+  <h1 id="eventoTitulo">Ranking Oficial</h1>
+
+  <div class="board" id="board"></div>
+  <p class="empty" id="emptyState" style="display:none;">O ranking oficial ainda não está disponível.</p>
+
+  <div class="controls">
+    <button id="btnAvancar">Avançar revelação ▸</button>
+    <button id="btnReiniciar">Reiniciar</button>
+  </div>
+
+<script src="assets/js/config.js?v=5"></script>
+<script src="assets/js/mock-data.js?v=5"></script>
+<script src="assets/js/api.js?v=5"></script>
+<script>
+  var EVT = window.APP_CONFIG.EVENT_ID;
+  var lastRanking = [];
+
+  function load() {
+    Api.call('get_telao_notes', { event_id: EVT }).then(function (res) {
+      lastRanking = res.ranking || [];
+      render(res.revealIndex || 0);
+    });
+  }
+
+  function render(revealIndex) {
+    var board = document.getElementById('board');
+    var empty = document.getElementById('emptyState');
+
+    if (!lastRanking.length) {
+      board.innerHTML = '';
+      empty.style.display = 'block';
+      return;
+    }
+    empty.style.display = 'none';
+
+    // reveal from last place up to first place, classic countdown style
+    var total = lastRanking.length;
+
+    board.innerHTML = lastRanking.map(function (r, i) {
+      var posFromLast = total - i; // 1 = last place
+      var revealed = posFromLast <= revealIndex;
+      var isFirst = i === 0;
+      return '<div class="row ' + (revealed ? 'is-revealed' : 'is-hidden') + (revealed && isFirst ? ' is-first' : '') + '">' +
+        '<div class="row__pos">' + (i + 1) + 'º</div>' +
+        '<div class="row__name"><strong>' + (revealed ? r.nome : '?????') + '</strong><span>' + (revealed ? r.estado : '') + '</span></div>' +
+        '<div class="row__total">' + (revealed ? r.total : '—') + '</div>' +
+        '</div>';
+    }).join('');
+  }
+
+  document.getElementById('btnAvancar').addEventListener('click', function () {
+    Api.call('get_telao_reveal_state', { event_id: EVT }).then(function (res) {
+      var next = (res.revealIndex || 0) + 1;
+      Api.call('set_telao_reveal_index', { event_id: EVT, index: next }).then(function () { load(); });
+    });
+  });
+
+  document.getElementById('btnReiniciar').addEventListener('click', function () {
+    Api.call('set_telao_reveal_index', { event_id: EVT, index: 0 }).then(function () { load(); });
+  });
+
+  load();
+  setInterval(load, 4000);
+</script>
+</body>
+</html>

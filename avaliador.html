@@ -1,0 +1,377 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Avaliar — Avaliação Digital 2.0</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;700;800&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/css/style.css?v=3">
+</head>
+<body>
+
+<div class="sidebar-overlay" data-sidebar-overlay></div>
+
+<div class="app-shell">
+
+  <aside class="app-sidebar">
+    <div class="app-sidebar__brand">
+      <div class="app-sidebar__brand-mark">🪁</div>
+      <div class="app-sidebar__brand-text">
+        <strong>Avaliação Digital</strong>
+        <span>Conexão Junina · 2.0</span>
+      </div>
+    </div>
+
+    <div class="app-sidebar__event">
+      <p class="app-sidebar__event-label">Evento atual</p>
+      <p class="app-sidebar__event-name" data-event-name>—</p>
+    </div>
+
+    <nav class="app-nav" data-app-nav></nav>
+
+    <div class="app-sidebar__foot">
+      <div class="app-user">
+        <div class="app-user__avatar" data-user-avatar>—</div>
+        <div>
+          <div class="app-user__name" data-user-name>—</div>
+          <div class="app-user__role" data-user-role>—</div>
+        </div>
+      </div>
+      <button class="logout-btn" data-logout>Sair do sistema</button>
+    </div>
+  </aside>
+
+  <div class="app-main">
+    <div class="mobile-topbar">
+      <strong>Avaliação Digital</strong>
+      <button class="mobile-topbar__toggle" data-sidebar-toggle aria-label="Abrir menu">☰</button>
+    </div>
+
+    <header class="app-topbar">
+      <div>
+        <h1>Sua votação</h1>
+        <p class="app-topbar__sub">Avalie a candidata ativa com atenção, ética e transparência.</p>
+      </div>
+    </header>
+
+    <div class="app-content app-content--narrow">
+
+      <div id="pendingCorrections"></div>
+
+      <div id="voteArea">
+        <div class="card">
+          <div class="empty-state" id="noActiveState">
+            <h3>Aguardando o início da avaliação</h3>
+            <p>Assim que o presidente de mesa ativar uma candidata, o formulário de votação aparece aqui.</p>
+          </div>
+
+          <div id="formBlock" style="display:none;">
+            <div class="card__head">
+              <div>
+                <h2 class="card__title" id="candidataNome">—</h2>
+                <p class="card__desc" id="candidataEstado">—</p>
+              </div>
+              <span class="badge badge-active" id="statusPill"><span class="badge-dot"></span>Em avaliação</span>
+            </div>
+
+            <form id="voteForm">
+              <div id="quesitosContainer"></div>
+
+              <div class="form-field">
+                <label>Assinatura</label>
+                <canvas class="sign-pad" id="signPad"></canvas>
+                <div style="margin-top:8px;">
+                  <button type="button" class="btn btn-ghost btn-sm" id="btnLimparAssinatura">Limpar assinatura</button>
+                </div>
+              </div>
+
+              <button type="submit" class="btn btn-primary btn-block" id="btnEnviarVoto" style="margin-top:10px;">Enviar voto</button>
+            </form>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script src="assets/js/config.js?v=5"></script>
+<script src="assets/js/mock-data.js?v=5"></script>
+<script src="assets/js/api.js?v=5"></script>
+<script src="assets/js/session.js?v=5"></script>
+<script src="assets/js/toast.js?v=5"></script>
+<script src="assets/js/shell.js?v=5"></script>
+<script>
+  var session = Session.require(['avaliador']);
+  if (session) {
+    Shell.init(session);
+    boot();
+  }
+
+  var EVT = session ? session.eventoId : null;
+  var quesitosAtuais = [];
+  var candidataAtual = null;
+  var notasSelecionadas = {};
+  var regrasAtuais = { minCaracteresJustificativa: 10, assinaturaObrigatoria: true };
+  var VALORES_NOTA = [8, 8.5, 9, 9.5, 10]; // substituído por Api.call('get_evento_regras')
+
+  function boot() {
+    Api.call('get_status_concurso', { event_id: EVT }).then(function (res) {
+      if (!eventoDentroDoPeriodo(res.dataInicio, res.dataFim)) {
+        mostrarForaDoPeriodo(res.dataInicio, res.dataFim);
+        return;
+      }
+      iniciarTelaDeVotacao();
+    });
+  }
+
+  function eventoDentroDoPeriodo(dataInicio, dataFim) {
+    var agora = new Date();
+    if (dataInicio && agora < new Date(dataInicio)) return false;
+    if (dataFim && agora > new Date(dataFim)) return false;
+    return true;
+  }
+
+  function mostrarForaDoPeriodo(dataInicio, dataFim) {
+    var card = document.querySelector('#voteArea .card');
+    var msg = dataInicio && new Date() < new Date(dataInicio)
+      ? 'Este evento abre para votação em ' + new Date(dataInicio).toLocaleString('pt-BR') + '.'
+      : 'Este evento já foi encerrado em ' + new Date(dataFim).toLocaleString('pt-BR') + '.';
+    card.innerHTML = '<div class="empty-state"><h3>Evento indisponível no momento</h3><p>' + msg + '</p></div>';
+  }
+
+  function iniciarTelaDeVotacao() {
+    Api.call('get_evento_regras', { event_id: EVT }).then(function (res) {
+      var r = res.regras || {};
+      regrasAtuais = r;
+      if (r.notaMin != null && r.notaMax != null) {
+        VALORES_NOTA = MockDB.gerarValoresNota(r.notaMin, r.notaMax, r.notaTipo || 'fracionada');
+      }
+    });
+    loadPendingCorrections();
+    loadActive();
+    setInterval(loadActive, 5000);
+    setInterval(loadPendingCorrections, 15000);
+    initSignaturePad();
+    document.getElementById('voteForm').addEventListener('submit', onSubmitVote);
+    document.getElementById('btnLimparAssinatura').addEventListener('click', clearSignature);
+  }
+
+  function loadActive() {
+    Api.call('get_active', { event_id: EVT }).then(function (res) {
+      var noActive = document.getElementById('noActiveState');
+      var formBlock = document.getElementById('formBlock');
+
+      if (!res.candidata || res.statusSistema === 'AGUARDANDO') {
+        noActive.style.display = 'block';
+        formBlock.style.display = 'none';
+        candidataAtual = null;
+        return;
+      }
+
+      candidataAtual = res.candidata;
+      noActive.style.display = 'none';
+      formBlock.style.display = 'block';
+
+      document.getElementById('candidataNome').textContent = res.candidata.nome;
+      document.getElementById('candidataEstado').textContent = res.candidata.estado;
+
+      var pill = document.getElementById('statusPill');
+      if (res.statusSistema === 'INTERROMPIDO') {
+        pill.className = 'badge badge-warn';
+        pill.innerHTML = '<span class="badge-dot"></span>Avaliação interrompida';
+      } else {
+        pill.className = 'badge badge-active';
+        pill.innerHTML = '<span class="badge-dot"></span>Em avaliação';
+      }
+
+      Api.call('get_quesitos', { event_id: EVT }).then(function (qres) {
+        quesitosAtuais = qres.quesitos || [];
+        renderQuesitos();
+        prefillMyVote();
+      });
+    });
+  }
+
+  function renderQuesitos() {
+    var container = document.getElementById('quesitosContainer');
+    container.innerHTML = quesitosAtuais.sort(function (a, b) { return a.ordem - b.ordem; }).map(function (q) {
+      return '<div class="form-field" style="border-top:1px solid var(--app-border);padding-top:16px;">' +
+        '<label>' + q.nome + '</label>' +
+        '<div class="note-picker" data-quesito="' + q.id + '">' +
+        VALORES_NOTA.map(function (v) {
+          return '<button type="button" class="note-option" data-value="' + v + '">' + v.toFixed(1) + '</button>';
+        }).join('') +
+        '</div>' +
+        '<textarea placeholder="Justificativa (mínimo 10 caracteres)" data-just="' + q.id + '" style="margin-top:10px;"></textarea>' +
+        '</div>';
+    }).join('');
+
+    container.querySelectorAll('.note-option').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var group = btn.closest('.note-picker');
+        group.querySelectorAll('.note-option').forEach(function (b) { b.classList.remove('is-selected'); });
+        btn.classList.add('is-selected');
+        notasSelecionadas[group.dataset.quesito] = Number(btn.dataset.value);
+      });
+    });
+  }
+
+  function prefillMyVote() {
+    if (!candidataAtual) return;
+    Api.call('get_my_vote', { event_id: EVT, id_candidata: candidataAtual.id, login: session.codigo }).then(function (res) {
+      (res.votos || []).forEach(function (v) {
+        var group = document.querySelector('.note-picker[data-quesito="' + v.quesitoId + '"]');
+        if (group) {
+          group.querySelectorAll('.note-option').forEach(function (b) {
+            b.classList.toggle('is-selected', Number(b.dataset.value) === Number(v.nota));
+          });
+          notasSelecionadas[v.quesitoId] = Number(v.nota);
+        }
+        var textarea = document.querySelector('textarea[data-just="' + v.quesitoId + '"]');
+        if (textarea) textarea.value = v.justificativa || '';
+      });
+    });
+  }
+
+  function onSubmitVote(e) {
+    e.preventDefault();
+    if (!candidataAtual) return;
+
+    var justificativas = {};
+    var faltando = [];
+
+    quesitosAtuais.forEach(function (q) {
+      var textarea = document.querySelector('textarea[data-just="' + q.id + '"]');
+      var just = textarea ? textarea.value.trim() : '';
+      justificativas[q.id] = just;
+
+      var minChars = regrasAtuais.minCaracteresJustificativa || 10;
+      if (!notasSelecionadas[q.id]) faltando.push(q.nome + ' (nota)');
+      else if (just.length < minChars) faltando.push(q.nome + ' (justificativa, mín. ' + minChars + ' caracteres)');
+    });
+
+    if (faltando.length) {
+      Toast.error('Preencha corretamente: ' + faltando.join(', '));
+      return;
+    }
+
+    if (regrasAtuais.assinaturaObrigatoria !== false && signatureIsEmpty()) {
+      Toast.error('A assinatura é obrigatória.');
+      return;
+    }
+
+    var btn = document.getElementById('btnEnviarVoto');
+    btn.disabled = true;
+
+    Api.call('submit_vote', {
+      event_id: EVT,
+      login: session.codigo,
+      avaliador: session.nome,
+      perfil: 'AVALIADOR',
+      id_candidata: candidataAtual.id,
+      notas: notasSelecionadas,
+      just: justificativas,
+      assinatura: signatureDataUrl()
+    }).then(function (res) {
+      btn.disabled = false;
+      if (res.success) Toast.success(res.message);
+      else Toast.error(res.message);
+    });
+  }
+
+  /* ---------------- correções pendentes do avaliador ---------------- */
+
+  function loadPendingCorrections() {
+    Api.call('get_my_pending_corrections', { event_id: EVT, login: session.codigo }).then(function (res) {
+      var host = document.getElementById('pendingCorrections');
+      var lista = res.correcoes || [];
+      if (!lista.length) { host.innerHTML = ''; return; }
+
+      host.innerHTML = '<div class="card" style="border-color:#f2dcab;background:#fffaf0;">' +
+        '<div class="card__head"><div><h2 class="card__title">Questionamento sobre uma nota sua</h2>' +
+        '<p class="card__desc">O presidente de mesa pediu revisão. Envie a nota e justificativa corrigidas.</p></div></div>' +
+        lista.map(function (c) {
+          return '<div style="border-top:1px solid var(--app-border);padding-top:14px;margin-top:10px;">' +
+            '<p style="font-size:13px;margin-bottom:8px;"><strong>Quesito ' + c.idQuesito.toUpperCase() + '</strong> — motivo: ' + c.motivo + '</p>' +
+            '<div class="field-row">' +
+            '<input type="text" placeholder="Nova nota (ex: 9,5)" id="fix-nota-' + c.id + '">' +
+            '<input type="text" placeholder="Nova justificativa" id="fix-just-' + c.id + '">' +
+            '</div>' +
+            '<button class="btn btn-secondary btn-sm" style="margin-top:8px;" onclick="enviarCorrecao(\'' + c.id + '\')">Enviar correção</button>' +
+            '</div>';
+        }).join('') +
+        '</div>';
+    });
+  }
+
+  window.enviarCorrecao = function (id) {
+    var nota = document.getElementById('fix-nota-' + id).value.replace(',', '.').trim();
+    var just = document.getElementById('fix-just-' + id).value.trim();
+    if (!nota || just.length < 10) { Toast.error('Informe nota e uma justificativa com pelo menos 10 caracteres.'); return; }
+
+    Api.call('submit_correction', { event_id: EVT, id_correcao: id, nota: Number(nota), justificativa: just }).then(function (res) {
+      res.success ? Toast.success(res.message) : Toast.error(res.message);
+      loadPendingCorrections();
+    });
+  };
+
+  /* ---------------- assinatura (canvas) ---------------- */
+
+  var canvas, ctx, drawing = false, hasDrawn = false;
+
+  function initSignaturePad() {
+    canvas = document.getElementById('signPad');
+    ctx = canvas.getContext('2d');
+    resizeCanvas();
+    window.addEventListener('resize', resizeCanvas);
+
+    canvas.addEventListener('pointerdown', function (e) { drawing = true; drawDot(e); });
+    canvas.addEventListener('pointermove', function (e) { if (drawing) drawLine(e); });
+    window.addEventListener('pointerup', function () { drawing = false; });
+  }
+
+  function resizeCanvas() {
+    var rect = canvas.getBoundingClientRect();
+    canvas.width = rect.width * devicePixelRatio;
+    canvas.height = rect.height * devicePixelRatio;
+    ctx.scale(devicePixelRatio, devicePixelRatio);
+    ctx.lineWidth = 2.2;
+    ctx.lineCap = 'round';
+    ctx.strokeStyle = '#173028';
+  }
+
+  var lastPoint = null;
+
+  function getPos(e) {
+    var rect = canvas.getBoundingClientRect();
+    return { x: e.clientX - rect.left, y: e.clientY - rect.top };
+  }
+
+  function drawDot(e) {
+    var p = getPos(e);
+    lastPoint = p;
+    hasDrawn = true;
+  }
+
+  function drawLine(e) {
+    var p = getPos(e);
+    ctx.beginPath();
+    ctx.moveTo(lastPoint.x, lastPoint.y);
+    ctx.lineTo(p.x, p.y);
+    ctx.stroke();
+    lastPoint = p;
+    hasDrawn = true;
+  }
+
+  function clearSignature() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    hasDrawn = false;
+  }
+
+  function signatureIsEmpty() { return !hasDrawn; }
+  function signatureDataUrl() { return canvas.toDataURL('image/png'); }
+</script>
+</body>
+</html>

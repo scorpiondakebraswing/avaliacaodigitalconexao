@@ -1,0 +1,607 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Painel da Presidência — Avaliação Digital 2.0</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;700;800&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/css/style.css?v=3">
+</head>
+<body>
+
+<div class="sidebar-overlay" data-sidebar-overlay></div>
+
+<div class="app-shell">
+
+  <aside class="app-sidebar">
+    <div class="app-sidebar__brand">
+      <div class="app-sidebar__brand-mark">🪁</div>
+      <div class="app-sidebar__brand-text">
+        <strong>Avaliação Digital</strong>
+        <span>Conexão Junina · 2.0</span>
+      </div>
+    </div>
+
+    <div class="app-sidebar__event">
+      <p class="app-sidebar__event-label">Evento atual</p>
+      <p class="app-sidebar__event-name" data-event-name>—</p>
+    </div>
+
+    <nav class="app-nav" data-app-nav></nav>
+
+    <div class="app-sidebar__foot">
+      <div class="app-user">
+        <div class="app-user__avatar" data-user-avatar>—</div>
+        <div>
+          <div class="app-user__name" data-user-name>—</div>
+          <div class="app-user__role" data-user-role>—</div>
+        </div>
+      </div>
+      <button class="logout-btn" data-logout>Sair do sistema</button>
+    </div>
+  </aside>
+
+  <div class="app-main">
+
+    <div class="mobile-topbar">
+      <strong>Avaliação Digital</strong>
+      <button class="mobile-topbar__toggle" data-sidebar-toggle aria-label="Abrir menu">☰</button>
+    </div>
+
+    <header class="app-topbar">
+      <div>
+        <h1>Painel da Presidência</h1>
+        <p class="app-topbar__sub">Controle o andamento, audite notas e apure o resultado oficial.</p>
+      </div>
+    </header>
+
+    <div class="app-content">
+
+      <div class="status-banner" id="statusBanner">Carregando status do concurso…</div>
+
+      <div class="tabs">
+        <button class="tab-btn is-active" data-tab="andamento">Andamento</button>
+        <button class="tab-btn" data-tab="finalizadas">Candidatas finalizadas</button>
+        <button class="tab-btn" data-tab="recebidas">Notas recebidas</button>
+        <button class="tab-btn" data-tab="validadas">Notas validadas</button>
+        <button class="tab-btn" data-tab="ranking">Ranking oficial</button>
+        <button class="tab-btn" data-tab="correcoes">Correções</button>
+      </div>
+
+      <!-- ===================== ANDAMENTO ===================== -->
+      <section class="tab-panel is-active" id="panel-andamento">
+        <div class="card">
+          <div class="card__head">
+            <div>
+              <h2 class="card__title">Candidata ativa</h2>
+              <p class="card__desc">Quem está sendo avaliada agora, e quem já votou.</p>
+            </div>
+          </div>
+          <div id="activeBlock"></div>
+        </div>
+
+        <div class="card">
+          <div class="card__head">
+            <div>
+              <h2 class="card__title">Fila de candidatas</h2>
+              <p class="card__desc">Prepare, ative, interrompa ou finalize a avaliação de cada candidata.</p>
+            </div>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr><th>Ordem</th><th>Candidata</th><th>Estado</th><th>Status</th><th>Ações</th></tr>
+              </thead>
+              <tbody id="filaBody"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- ===================== FINALIZADAS / AUDITORIA ===================== -->
+      <section class="tab-panel" id="panel-finalizadas">
+        <div class="card">
+          <div class="card__head">
+            <div>
+              <h2 class="card__title">Candidatas finalizadas</h2>
+              <p class="card__desc">Audite as notas recebidas antes de liberar para o ranking oficial.</p>
+            </div>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Candidata</th><th>Estado</th><th>Auditoria</th><th>Ações</th></tr></thead>
+              <tbody id="finalizadasBody"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- ===================== NOTAS RECEBIDAS ===================== -->
+      <section class="tab-panel" id="panel-recebidas">
+        <div class="card">
+          <div class="card__head">
+            <div>
+              <h2 class="card__title">Notas recebidas</h2>
+              <p class="card__desc">Todos os votos brutos enviados pelos avaliadores. Use "Questionar" para abrir uma correção.</p>
+            </div>
+          </div>
+          <div id="recebidasContainer"></div>
+        </div>
+      </section>
+
+      <!-- ===================== NOTAS VALIDADAS ===================== -->
+      <section class="tab-panel" id="panel-validadas">
+        <div class="card">
+          <div class="card__head">
+            <div>
+              <h2 class="card__title">Notas validadas</h2>
+              <p class="card__desc">Notas já auditadas, com a maior e a menor de cada quesito marcadas como descartadas.</p>
+            </div>
+          </div>
+          <div id="validadasContainer"></div>
+        </div>
+      </section>
+
+      <!-- ===================== RANKING OFICIAL ===================== -->
+      <section class="tab-panel" id="panel-ranking">
+        <div class="card">
+          <div class="card__head">
+            <div>
+              <h2 class="card__title">Ranking oficial</h2>
+              <p class="card__desc">Somente candidatas com auditoria concluída entram aqui.</p>
+            </div>
+            <button class="btn btn-danger btn-sm" id="btnEncerrarConcurso">Encerrar concurso</button>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead id="rankingHead"></thead>
+              <tbody id="rankingBody"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- ===================== CORREÇÕES ===================== -->
+      <section class="tab-panel" id="panel-correcoes">
+        <div class="card">
+          <div class="card__head">
+            <div>
+              <h2 class="card__title">Correções e questionamentos</h2>
+              <p class="card__desc">Acompanhe o status de cada solicitação de correção de nota.</p>
+            </div>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Candidata</th><th>Avaliador</th><th>Quesito</th><th>Antes</th><th>Depois</th><th>Status</th><th>Ações</th></tr></thead>
+              <tbody id="correcoesBody"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+    </div>
+  </div>
+</div>
+
+<!-- ===================== MODAL: solicitar correção ===================== -->
+<div class="modal-overlay" id="modalCorrecao">
+  <div class="modal">
+    <div class="modal__head">
+      <h2 class="card__title">Solicitar correção de nota</h2>
+      <button class="modal__close" data-close-modal="modalCorrecao">&times;</button>
+    </div>
+    <input type="hidden" id="corCandidataId">
+    <input type="hidden" id="corAvaliadorLogin">
+    <input type="hidden" id="corQuesitoId">
+    <p class="card__desc" id="corResumo" style="margin-bottom:16px;"></p>
+    <div class="form-field">
+      <label for="corMotivo">Motivo do questionamento</label>
+      <textarea id="corMotivo" placeholder="Explique por que essa nota está sendo questionada…"></textarea>
+    </div>
+    <button class="btn btn-primary btn-block" id="btnConfirmarCorrecao">Solicitar correção</button>
+  </div>
+</div>
+
+<!-- ===================== MODAL: auditoria de candidata ===================== -->
+<div class="modal-overlay" id="modalAuditoria">
+  <div class="modal">
+    <div class="modal__head">
+      <h2 class="card__title" id="auditTitulo">Auditoria</h2>
+      <button class="modal__close" data-close-modal="modalAuditoria">&times;</button>
+    </div>
+    <div id="auditContent"></div>
+    <button class="btn btn-success btn-block" id="btnFinalizarAuditoria" style="margin-top:16px;">Marcar como auditada</button>
+  </div>
+</div>
+
+<!-- ===================== MODAL: encerrar concurso ===================== -->
+<div class="modal-overlay" id="modalEncerramento">
+  <div class="modal">
+    <div class="modal__head">
+      <h2 class="card__title">Encerrar concurso</h2>
+      <button class="modal__close" data-close-modal="modalEncerramento">&times;</button>
+    </div>
+    <p class="card__desc" style="margin-bottom:16px;">Essa ação congela o ranking final, as notas recebidas, as notas validadas e o histórico de correções. Depois de encerrado, nenhuma alteração adicional será permitida.</p>
+    <button class="btn btn-danger btn-block" id="btnConfirmarEncerramento">Confirmar encerramento definitivo</button>
+  </div>
+</div>
+
+<script src="assets/js/config.js?v=5"></script>
+<script src="assets/js/mock-data.js?v=5"></script>
+<script src="assets/js/api.js?v=5"></script>
+<script src="assets/js/session.js?v=5"></script>
+<script src="assets/js/toast.js?v=5"></script>
+<script src="assets/js/shell.js?v=5"></script>
+<script>
+  var session = Session.require(['presidente', 'admin']);
+  if (session) {
+    Shell.init(session);
+    boot();
+  }
+
+  var EVT = session ? session.eventoId : null;
+
+  function boot() {
+    bindTabs();
+    bindModals();
+    Api.call('get_status_concurso', { event_id: EVT }).then(function (res) {
+      var agora = new Date();
+      var foraDoPeriodo = (res.dataInicio && agora < new Date(res.dataInicio)) || (res.dataFim && agora > new Date(res.dataFim));
+      if (foraDoPeriodo) {
+        var msg = res.dataInicio && agora < new Date(res.dataInicio)
+          ? 'Este evento abre em ' + new Date(res.dataInicio).toLocaleString('pt-BR') + '.'
+          : 'Este evento já foi encerrado em ' + new Date(res.dataFim).toLocaleString('pt-BR') + '.';
+        document.querySelector('.app-content').innerHTML = '<div class="card"><div class="empty-state"><h3>Evento indisponível no momento</h3><p>' + msg + '</p></div></div>';
+        return;
+      }
+      refreshAll();
+      setInterval(refreshAll, 6000);
+    });
+  }
+
+  function refreshAll() {
+    loadStatus();
+    loadAndamento();
+    loadFinalizadas();
+    loadRecebidas();
+    loadValidadas();
+    loadRanking();
+    loadCorrecoes();
+  }
+
+  function bindTabs() {
+    document.querySelectorAll('.tab-btn').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        document.querySelectorAll('.tab-btn').forEach(function (b) { b.classList.remove('is-active'); });
+        document.querySelectorAll('.tab-panel').forEach(function (p) { p.classList.remove('is-active'); });
+        btn.classList.add('is-active');
+        document.getElementById('panel-' + btn.dataset.tab).classList.add('is-active');
+      });
+    });
+  }
+
+  function bindModals() {
+    document.querySelectorAll('[data-close-modal]').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        document.getElementById(btn.dataset.closeModal).classList.remove('is-open');
+      });
+    });
+
+    document.getElementById('btnConfirmarCorrecao').addEventListener('click', function () {
+      var motivo = document.getElementById('corMotivo').value.trim();
+      if (motivo.length < 5) { Toast.error('Descreva o motivo do questionamento.'); return; }
+
+      Api.call('request_correction', {
+        event_id: EVT,
+        usuario: session.nome,
+        perfil: 'PRESIDENTE DE MESA',
+        id_candidata: document.getElementById('corCandidataId').value,
+        login_avaliador: document.getElementById('corAvaliadorLogin').value,
+        id_quesito: document.getElementById('corQuesitoId').value,
+        motivo: motivo
+      }).then(function (res) {
+        if (res.success) {
+          Toast.success(res.message);
+          document.getElementById('modalCorrecao').classList.remove('is-open');
+          document.getElementById('corMotivo').value = '';
+          loadRecebidas();
+          loadCorrecoes();
+        } else {
+          Toast.error(res.message);
+        }
+      });
+    });
+
+    document.getElementById('btnEncerrarConcurso').addEventListener('click', function () {
+      document.getElementById('modalEncerramento').classList.add('is-open');
+    });
+
+    document.getElementById('btnConfirmarEncerramento').addEventListener('click', function () {
+      Api.call('finalizar_concurso', { event_id: EVT, usuario: session.nome, perfil: 'PRESIDENTE DE MESA' }).then(function (res) {
+        document.getElementById('modalEncerramento').classList.remove('is-open');
+        if (res.success) { Toast.success(res.message); refreshAll(); }
+        else Toast.error(res.message);
+      });
+    });
+  }
+
+  /* ---------------- ANDAMENTO ---------------- */
+
+  function loadAndamento() {
+    Promise.all([
+      Api.call('get_active', { event_id: EVT }),
+      Api.call('get_candidates_panel', { event_id: EVT })
+    ]).then(function (res) {
+      renderActiveBlock(res[0]);
+      renderFila(res[1].candidatas || []);
+    });
+  }
+
+  function renderActiveBlock(activeRes) {
+    var block = document.getElementById('activeBlock');
+    var c = activeRes.candidata;
+    if (!c) {
+      block.innerHTML = '<div class="empty-state"><h3>Nenhuma candidata ativa</h3><p>Prepare e inicie a avaliação de uma candidata na fila abaixo.</p></div>';
+      return;
+    }
+
+    Api.call('get_monitor', { event_id: EVT, id_candidata: c.id }).then(function (mon) {
+      var lista = (mon.avaliadores || []).map(function (a) {
+        return '<span class="badge ' + (a.votou ? 'badge-active' : 'badge-neutral') + '"><span class="badge-dot"></span>' + a.nome + (a.votou ? ' · votou' : ' · aguardando') + '</span>';
+      }).join(' ');
+
+      block.innerHTML =
+        '<h3 class="font-display" style="font-size:18px;margin-bottom:6px;">' + c.nome + ' <span style="color:var(--ink-faint);font-weight:500;font-size:14px;">— ' + c.estado + '</span></h3>' +
+        '<div style="display:flex;flex-wrap:wrap;gap:8px;margin:10px 0 16px;">' + lista + '</div>' +
+        '<div style="display:flex;flex-wrap:wrap;gap:8px;">' +
+        '<button class="btn btn-secondary btn-sm" onclick="actInterromper()">Interromper</button>' +
+        '<button class="btn btn-secondary btn-sm" onclick="actRetomar()">Retomar</button>' +
+        '<button class="btn btn-primary btn-sm" onclick="actEncerrar(\'' + c.id + '\')">Encerrar avaliação</button>' +
+        '</div>';
+    });
+  }
+
+  function renderFila(candidatas) {
+    var body = document.getElementById('filaBody');
+    if (!candidatas.length) { body.innerHTML = '<tr><td colspan="5" class="table-empty">Nenhuma candidata cadastrada.</td></tr>'; return; }
+
+    body.innerHTML = candidatas.sort(function (a, b) { return a.ordem - b.ordem; }).map(function (c) {
+      return '<tr>' +
+        '<td>' + c.ordem + '</td>' +
+        '<td>' + c.nome + '</td>' +
+        '<td>' + c.estado + '</td>' +
+        '<td>' + statusBadge(c) + '</td>' +
+        '<td>' + acoesFila(c) + '</td>' +
+        '</tr>';
+    }).join('');
+  }
+
+  function statusBadge(c) {
+    if (c.flagEspecial === 'DESISTENTE') return '<span class="badge badge-neutral">Desistente</span>';
+    if (c.flagEspecial === 'DESCLASSIFICADA') return '<span class="badge badge-danger">Desclassificada</span>';
+    var map = {
+      PENDENTE: '<span class="badge badge-neutral">Pendente</span>',
+      EM_AVALIACAO: '<span class="badge badge-active"><span class="badge-dot"></span>Em avaliação</span>',
+      FINALIZADA: '<span class="badge badge-info">Finalizada</span>'
+    };
+    return map[c.statusAvaliacao] || '<span class="badge badge-neutral">' + c.statusAvaliacao + '</span>';
+  }
+
+  function acoesFila(c) {
+    var btns = [];
+    if (c.flagEspecial) {
+      btns.push('<button class="btn btn-ghost btn-sm" onclick="actFlag(\'' + c.id + '\',\'\')">Reativar</button>');
+      return btns.join(' ');
+    }
+    if (c.statusAvaliacao === 'PENDENTE') {
+      btns.push('<button class="btn btn-secondary btn-sm" onclick="actIniciar(\'' + c.id + '\')">Iniciar</button>');
+      btns.push('<button class="btn btn-ghost btn-sm" onclick="actFlag(\'' + c.id + '\',\'DESISTENTE\')">Desistente</button>');
+      btns.push('<button class="btn btn-ghost btn-sm" onclick="actFlag(\'' + c.id + '\',\'DESCLASSIFICADA\')">Desclassificar</button>');
+    } else if (c.statusAvaliacao === 'EM_AVALIACAO') {
+      btns.push('<button class="btn btn-primary btn-sm" onclick="actEncerrar(\'' + c.id + '\')">Encerrar</button>');
+      btns.push('<button class="btn btn-ghost btn-sm" onclick="actVoltarFila(\'' + c.id + '\')">Devolver à fila</button>');
+    } else if (c.statusAvaliacao === 'FINALIZADA') {
+      btns.push('<span style="color:var(--ink-faint);font-size:12.5px;">veja em "Candidatas finalizadas"</span>');
+    }
+    return btns.join(' ');
+  }
+
+  window.actIniciar = function (id) {
+    Api.call('start_evaluation', { event_id: EVT, id_candidata: id, usuario: session.nome, perfil: 'PRESIDENTE DE MESA' }).then(function (res) {
+      res.success ? Toast.success(res.message) : Toast.error(res.message);
+      loadAndamento();
+    });
+  };
+  window.actInterromper = function () {
+    Api.call('interrupt_evaluation', { event_id: EVT }).then(function (res) { res.success ? Toast.success(res.message) : Toast.error(res.message); loadAndamento(); });
+  };
+  window.actRetomar = function () {
+    Api.call('resume_evaluation', { event_id: EVT }).then(function (res) { res.success ? Toast.success(res.message) : Toast.error(res.message); loadAndamento(); });
+  };
+  window.actEncerrar = function (id) {
+    Api.call('end_evaluation', { event_id: EVT, id_candidata: id, usuario: session.nome, perfil: 'PRESIDENTE DE MESA' }).then(function (res) {
+      res.success ? Toast.success(res.message) : Toast.error(res.message);
+      loadAndamento(); loadFinalizadas();
+    });
+  };
+  window.actVoltarFila = function (id) {
+    Api.call('return_to_queue', { event_id: EVT, id_candidata: id }).then(function (res) { res.success ? Toast.success(res.message) : Toast.error(res.message); loadAndamento(); });
+  };
+  window.actFlag = function (id, flag) {
+    Api.call('set_candidate_flag', { event_id: EVT, id_candidata: id, flag: flag, usuario: session.nome, perfil: 'PRESIDENTE DE MESA' }).then(function (res) {
+      res.success ? Toast.success(res.message) : Toast.error(res.message);
+      loadAndamento();
+    });
+  };
+
+  /* ---------------- STATUS BANNER ---------------- */
+
+  function loadStatus() {
+    Api.call('get_status_concurso', { event_id: EVT }).then(function (res) {
+      var banner = document.getElementById('statusBanner');
+      var map = {
+        A_INICIAR: ['status-aguardando', 'Status do concurso: A INICIAR'],
+        EM_ANDAMENTO: ['status-andamento', 'Status do concurso: EM ANDAMENTO'],
+        FINALIZADO: ['status-finalizado', 'Status do concurso: FINALIZADO — nenhuma alteração adicional é permitida.']
+      };
+      var info = map[res.statusConcurso] || ['status-aguardando', 'Status do concurso: —'];
+      banner.className = 'status-banner ' + info[0];
+      banner.textContent = info[1];
+    });
+  }
+
+  /* ---------------- FINALIZADAS / AUDITORIA ---------------- */
+
+  function loadFinalizadas() {
+    Api.call('get_auditoria_candidates', { event_id: EVT }).then(function (res) {
+      var body = document.getElementById('finalizadasBody');
+      var lista = res.candidatas || [];
+      if (!lista.length) { body.innerHTML = '<tr><td colspan="4" class="table-empty">Nenhuma candidata finalizada ainda.</td></tr>'; return; }
+      body.innerHTML = lista.map(function (c) {
+        return '<tr><td>' + c.nome + '</td><td>' + c.estado + '</td><td>' +
+          (c.statusAuditoria === 'AUDITADA' ? '<span class="badge badge-active">Auditada</span>' : '<span class="badge badge-warn">Pendente</span>') +
+          '</td><td><button class="btn btn-secondary btn-sm" onclick="abrirAuditoria(\'' + c.id + '\',\'' + c.nome.replace(/'/g, "") + '\')">Ver auditoria</button></td></tr>';
+      }).join('');
+    });
+  }
+
+  var auditCandidataAtual = null;
+
+  window.abrirAuditoria = function (id, nome) {
+    auditCandidataAtual = id;
+    document.getElementById('auditTitulo').textContent = 'Auditoria — ' + nome;
+    Api.call('get_candidate_audit', { event_id: EVT, id_candidata: id }).then(function (res) {
+      var html = (res.detalhamento || []).map(function (q) {
+        var rows = q.votos.map(function (v) {
+          return '<tr' + (v.descartada ? ' style="opacity:.45;text-decoration:line-through;"' : '') + '>' +
+            '<td>' + v.avaliador + '</td><td>' + Number(v.nota).toFixed(1) + '</td><td style="font-size:12px;">' + v.justificativa + '</td>' +
+            '<td>' + (v.descartada ? '<span class="badge badge-warn">Descartada</span>' : '<span class="badge badge-active">Considerada</span>') + '</td></tr>';
+        }).join('');
+        return '<h3 style="font-size:14px;margin:16px 0 8px;">' + q.quesito + '</h3><div class="table-wrap"><table><thead><tr><th>Avaliador</th><th>Nota</th><th>Justificativa</th><th></th></tr></thead><tbody>' + rows + '</tbody></table></div>';
+      }).join('');
+      document.getElementById('auditContent').innerHTML = html || '<p class="card__desc">Nenhum voto registrado.</p>';
+      document.getElementById('modalAuditoria').classList.add('is-open');
+    });
+  };
+
+  document.getElementById('btnFinalizarAuditoria').addEventListener('click', function () {
+    if (!auditCandidataAtual) return;
+    Api.call('finalize_audit', { event_id: EVT, id_candidata: auditCandidataAtual, usuario: session.nome, perfil: 'PRESIDENTE DE MESA' }).then(function (res) {
+      res.success ? Toast.success(res.message) : Toast.error(res.message);
+      document.getElementById('modalAuditoria').classList.remove('is-open');
+      loadFinalizadas(); loadRanking(); loadValidadas();
+    });
+  });
+
+  /* ---------------- NOTAS RECEBIDAS ---------------- */
+
+  function loadRecebidas() {
+    Api.call('get_received_notes', { event_id: EVT }).then(function (res) {
+      var container = document.getElementById('recebidasContainer');
+      var candidatas = (res.candidatas || []).filter(function (c) { return c.votos.length; });
+
+      if (!candidatas.length) { container.innerHTML = '<div class="empty-state"><h3>Ainda sem votos</h3><p>Assim que os avaliadores votarem, as notas aparecem aqui.</p></div>'; return; }
+
+      container.innerHTML = candidatas.map(function (c) {
+        var rows = c.votos.map(function (v) {
+          return '<tr><td>' + v.avaliadorNome + '</td><td>' + v.quesitoId.toUpperCase() + '</td><td>' + Number(v.nota).toFixed(1) + '</td><td style="max-width:260px;font-size:12.5px;">' + v.justificativa + '</td>' +
+            '<td><button class="btn btn-ghost btn-sm" onclick="abrirCorrecao(\'' + c.id + '\',\'' + v.avaliador + '\',\'' + v.quesitoId + '\',\'' + v.avaliadorNome.replace(/'/g, "") + '\',\'' + c.nome.replace(/'/g, "") + '\')">Questionar</button></td></tr>';
+        }).join('');
+        return '<h3 style="font-size:15px;margin:18px 0 8px;">' + c.nome + '</h3><div class="table-wrap"><table><thead><tr><th>Avaliador</th><th>Quesito</th><th>Nota</th><th>Justificativa</th><th></th></tr></thead><tbody>' + rows + '</tbody></table></div>';
+      }).join('');
+    });
+  }
+
+  window.abrirCorrecao = function (candidataId, login, quesitoId, avaliadorNome, candidataNome) {
+    document.getElementById('corCandidataId').value = candidataId;
+    document.getElementById('corAvaliadorLogin').value = login;
+    document.getElementById('corQuesitoId').value = quesitoId;
+    document.getElementById('corResumo').textContent = avaliadorNome + ' · ' + candidataNome + ' · quesito ' + quesitoId.toUpperCase();
+    document.getElementById('modalCorrecao').classList.add('is-open');
+  };
+
+  /* ---------------- NOTAS VALIDADAS ---------------- */
+
+  function loadValidadas() {
+    Api.call('get_validated_table', { event_id: EVT }).then(function (res) {
+      var container = document.getElementById('validadasContainer');
+      var candidatas = res.candidatas || [];
+      if (!candidatas.length) { container.innerHTML = '<div class="empty-state"><h3>Nenhuma candidata auditada ainda</h3></div>'; return; }
+
+      container.innerHTML = candidatas.map(function (c) {
+        var blocos = c.detalhamento.map(function (q) {
+          var rows = q.votos.map(function (v) {
+            return '<tr' + (v.descartada ? ' style="opacity:.45;text-decoration:line-through;"' : '') + '><td>' + v.avaliador + '</td><td>' + Number(v.nota).toFixed(1) + '</td></tr>';
+          }).join('');
+          return '<div style="margin-bottom:10px;"><strong style="font-size:12.5px;">' + q.quesito + '</strong><div class="table-wrap"><table><tbody>' + rows + '</tbody></table></div></div>';
+        }).join('');
+        return '<h3 style="font-size:15px;margin:18px 0 8px;">' + c.nome + ' <span style="color:var(--ink-faint);font-weight:500;">— ' + c.estado + '</span></h3>' + blocos;
+      }).join('');
+    });
+  }
+
+  /* ---------------- RANKING OFICIAL ---------------- */
+
+  function loadRanking() {
+    Api.call('get_official_ranking', { event_id: EVT }).then(function (res) {
+      Api.call('get_quesitos', { event_id: EVT }).then(function (qres) {
+        var quesitos = qres.quesitos || [];
+        var head = '<tr><th>Pos.</th><th>Candidata</th><th>Estado</th>' + quesitos.map(function (q) { return '<th>' + q.nome + '</th>'; }).join('') + '<th>Total</th><th>Observação</th></tr>';
+        document.getElementById('rankingHead').innerHTML = head;
+
+        var body = document.getElementById('rankingBody');
+        var ranking = res.ranking || [];
+        if (!ranking.length) { body.innerHTML = '<tr><td colspan="' + (quesitos.length + 5) + '" class="table-empty">Ranking oficial vazio — audite candidatas para vê-las aqui.</td></tr>'; return; }
+
+        body.innerHTML = ranking.map(function (r, i) {
+          return '<tr><td>' + (i + 1) + '</td><td>' + r.nome + '</td><td>' + r.estado + '</td>' +
+            quesitos.map(function (q) { return '<td>' + (r.detalhamento[q.id] || 0) + '</td>'; }).join('') +
+            '<td><strong>' + r.total + '</strong></td><td style="font-size:12px;color:var(--ink-faint);">' + (r.observacao || '') + '</td></tr>';
+        }).join('');
+      });
+    });
+  }
+
+  /* ---------------- CORREÇÕES ---------------- */
+
+  function loadCorrecoes() {
+    Api.call('get_all_corrections', { event_id: EVT }).then(function (res) {
+      var body = document.getElementById('correcoesBody');
+      var lista = res.correcoes || [];
+      if (!lista.length) { body.innerHTML = '<tr><td colspan="7" class="table-empty">Nenhuma correção solicitada.</td></tr>'; return; }
+
+      var statusBadgeMap = {
+        PENDENTE_CORRECAO: '<span class="badge badge-warn">Pendente</span>',
+        CORRIGIDA: '<span class="badge badge-info">Corrigida</span>',
+        VALIDADA: '<span class="badge badge-active">Validada</span>'
+      };
+
+      body.innerHTML = lista.map(function (c) {
+        var acao = '';
+        if (c.status === 'CORRIGIDA') {
+          acao = '<button class="btn btn-success btn-sm" onclick="validarCorrecao(\'' + c.id + '\')">Validar</button>';
+        } else if (c.status === 'PENDENTE_CORRECAO') {
+          acao = '<button class="btn btn-ghost btn-sm" onclick="cancelarCorrecao(\'' + c.id + '\')">Cancelar</button>';
+        }
+        return '<tr><td>' + c.idCandidata + '</td><td>' + c.nomeAvaliador + '</td><td>' + c.idQuesito.toUpperCase() + '</td><td>' + c.notaAntes + '</td><td>' + (c.notaDepois || '—') + '</td><td>' + (statusBadgeMap[c.status] || c.status) + '</td><td>' + acao + '</td></tr>';
+      }).join('');
+    });
+  }
+
+  window.validarCorrecao = function (id) {
+    Api.call('validate_correction', { event_id: EVT, id_correcao: id, usuario: session.nome, perfil: 'PRESIDENTE DE MESA' }).then(function (res) {
+      res.success ? Toast.success(res.message) : Toast.error(res.message);
+      loadCorrecoes(); loadRecebidas(); loadValidadas(); loadRanking();
+    });
+  };
+
+  window.cancelarCorrecao = function (id) {
+    Api.call('cancel_correction', { event_id: EVT, id_correcao: id }).then(function (res) {
+      res.success ? Toast.success(res.message) : Toast.error(res.message);
+      loadCorrecoes();
+    });
+  };
+</script>
+</body>
+</html>
