@@ -1,0 +1,9 @@
+{
+  "name": "avaliacaodigital-backend",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Backend serverless (Vercel + Supabase) da Avaliação Digital 2.0 — Conexão Junina",
+  "dependencies": {
+    "@supabase/supabase-js": "^2.45.0"
+  }
+}

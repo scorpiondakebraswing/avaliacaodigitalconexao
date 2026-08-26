@@ -128,4 +128,3 @@ Veja os documentos já entregues:
 - `CODEDUMP.md` — como o V1 funcionava e a lógica de negócio (descarte de notas, desempate, fluxo de correção).
 - `BLUEPRINT.md` — arquitetura da V2.0.
 - `PRD.md` — requisitos completos.
-"# avaliacaodigitalconexao"  
