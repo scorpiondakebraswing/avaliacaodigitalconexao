@@ -105,6 +105,7 @@ window.APP_CONFIG = {
 };
 ```
 
+
 Suba o arquivo atualizado para o cPanel (sobrescrevendo o antigo). A partir daí, o sistema deixa de usar dados fictícios e passa a gravar de verdade na planilha do evento.
 
 ## 3. Cadastrar candidatas, quesitos e usuários de um evento real
