@@ -29,17 +29,7 @@ module.exports = async function handler(req, res) {
     res.status(200).json(result);
   } catch (err) {
     console.error(err);
-    res.status(200).json({
-      success: false,
-      message: 'Erro interno: ' + err.message,
-      debug: {
-        hasUrl: !!process.env.SUPABASE_URL,
-        urlFull: process.env.SUPABASE_URL || '',
-        urlLength: (process.env.SUPABASE_URL || '').length,
-        hasKey: !!process.env.SUPABASE_SERVICE_ROLE_KEY,
-        keyLength: (process.env.SUPABASE_SERVICE_ROLE_KEY || '').length
-      }
-    });
+    res.status(200).json({ success: false, message: 'Erro interno: ' + err.message });
   }
 };
 
