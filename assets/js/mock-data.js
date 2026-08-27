@@ -65,7 +65,7 @@ var MockDB = {
               regraDescarte: "maior_e_menor", // 'sem_descarte' | 'maior' | 'maior_e_menor'
               desempatePorQuesito: true,
               justificativaObrigatoria: true,
-              minCaracteresJustificativa: 10,
+              maxCaracteresJustificativa: 500,
               assinaturaObrigatoria: true
             }
           },

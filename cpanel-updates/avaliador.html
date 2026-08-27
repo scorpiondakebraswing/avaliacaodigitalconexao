@@ -96,12 +96,12 @@
   </div>
 </div>
 
-<script src="assets/js/config.js?v=11"></script>
-<script src="assets/js/mock-data.js?v=11"></script>
-<script src="assets/js/api.js?v=11"></script>
-<script src="assets/js/session.js?v=11"></script>
-<script src="assets/js/toast.js?v=11"></script>
-<script src="assets/js/shell.js?v=11"></script>
+<script src="assets/js/config.js?v=12"></script>
+<script src="assets/js/mock-data.js?v=12"></script>
+<script src="assets/js/api.js?v=12"></script>
+<script src="assets/js/session.js?v=12"></script>
+<script src="assets/js/toast.js?v=12"></script>
+<script src="assets/js/shell.js?v=12"></script>
 <script>
   var session = Session.require(['avaliador']);
   if (session) {
@@ -112,8 +112,9 @@
   var EVT = session ? session.eventoId : null;
   var quesitosAtuais = [];
   var candidataAtual = null;
+  var candidataAtivaId = null;
   var notasSelecionadas = {};
-  var regrasAtuais = { minCaracteresJustificativa: 10, justificativaObrigatoria: true, assinaturaObrigatoria: true };
+  var regrasAtuais = { maxCaracteresJustificativa: 500, justificativaObrigatoria: true, assinaturaObrigatoria: true };
   var VALORES_NOTA = [8, 8.5, 9, 9.5, 10]; // substituído por Api.call('get_evento_regras')
 
   function boot() {
@@ -167,10 +168,10 @@
         noActive.style.display = 'block';
         formBlock.style.display = 'none';
         candidataAtual = null;
+        candidataAtivaId = null;
         return;
       }
 
-      candidataAtual = res.candidata;
       noActive.style.display = 'none';
       formBlock.style.display = 'block';
 
@@ -185,6 +186,17 @@
         pill.className = 'badge badge-active';
         pill.innerHTML = '<span class="badge-dot"></span>Em avaliação';
       }
+
+      candidataAtual = res.candidata;
+
+      // Só reconstrói o formulário quando a candidata ativa MUDA de fato.
+      // Enquanto o mesmo grupo continua se apresentando, o avaliador pode
+      // ir anotando à vontade — o polling (a cada 5s) não deve apagar o
+      // que ele já marcou ou escreveu.
+      if (candidataAtivaId === res.candidata.id) return;
+      candidataAtivaId = res.candidata.id;
+      notasSelecionadas = {};
+      clearSignature();
 
       Api.call('get_quesitos', { event_id: EVT, login: session.codigo }).then(function (qres) {
         quesitosAtuais = qres.quesitos || [];
@@ -205,9 +217,10 @@
     document.getElementById('btnEnviarVoto').style.display = '';
 
     var justObrigatoria = regrasAtuais.justificativaObrigatoria !== false;
+    var maxChars = regrasAtuais.maxCaracteresJustificativa || 500;
     var placeholderJust = justObrigatoria
-      ? 'Justificativa (mínimo ' + (regrasAtuais.minCaracteresJustificativa || 10) + ' caracteres)'
-      : 'Justificativa (opcional)';
+      ? 'Justificativa (obrigatória, até ' + maxChars + ' caracteres)'
+      : 'Justificativa (opcional, até ' + maxChars + ' caracteres)';
 
     container.innerHTML = quesitosAtuais.sort(function (a, b) { return a.ordem - b.ordem; }).map(function (q) {
       return '<div class="form-field" style="border-top:1px solid var(--app-border);padding-top:16px;">' +
@@ -217,7 +230,7 @@
           return '<button type="button" class="note-option" data-value="' + v + '">' + v.toFixed(1) + '</button>';
         }).join('') +
         '</div>' +
-        '<textarea placeholder="' + placeholderJust + '" data-just="' + q.id + '" style="margin-top:10px;"></textarea>' +
+        '<textarea placeholder="' + placeholderJust + '" maxlength="' + maxChars + '" data-just="' + q.id + '" style="margin-top:10px;"></textarea>' +
         '</div>';
     }).join('');
 
@@ -260,9 +273,11 @@
       var just = textarea ? textarea.value.trim() : '';
       justificativas[q.id] = just;
 
-      var minChars = regrasAtuais.justificativaObrigatoria !== false ? (regrasAtuais.minCaracteresJustificativa || 10) : 0;
+      var obrigatoria = regrasAtuais.justificativaObrigatoria !== false;
+      var maxChars = regrasAtuais.maxCaracteresJustificativa || 500;
       if (!notasSelecionadas[q.id]) faltando.push(q.nome + ' (nota)');
-      else if (just.length < minChars) faltando.push(q.nome + ' (justificativa, mín. ' + minChars + ' caracteres)');
+      else if (obrigatoria && just.length === 0) faltando.push(q.nome + ' (justificativa obrigatória)');
+      else if (just.length > maxChars) faltando.push(q.nome + ' (justificativa passou de ' + maxChars + ' caracteres)');
     });
 
     if (faltando.length) {
@@ -347,12 +362,31 @@
 
   function resizeCanvas() {
     var rect = canvas.getBoundingClientRect();
+    if (rect.width === 0 || rect.height === 0) return;
+
+    // Redimensionar um canvas apaga o desenho — então, se já tinha algo
+    // desenhado (ex.: o teclado do celular abriu/fechou e disparou um
+    // resize da janela), guardamos a imagem antes e recolocamos depois.
+    var imagemAnterior = hasDrawn ? canvas.toDataURL('image/png') : null;
+    var larguraAnterior = canvas._larguraCss;
+    var alturaAnterior = canvas._alturaCss;
+
     canvas.width = rect.width * devicePixelRatio;
     canvas.height = rect.height * devicePixelRatio;
-    ctx.scale(devicePixelRatio, devicePixelRatio);
+    canvas._larguraCss = rect.width;
+    canvas._alturaCss = rect.height;
+    ctx.setTransform(devicePixelRatio, 0, 0, devicePixelRatio, 0, 0);
     ctx.lineWidth = 2.2;
     ctx.lineCap = 'round';
     ctx.strokeStyle = '#173028';
+
+    if (imagemAnterior) {
+      var img = new Image();
+      img.onload = function () {
+        ctx.drawImage(img, 0, 0, larguraAnterior || rect.width, alturaAnterior || rect.height);
+      };
+      img.src = imagemAnterior;
+    }
   }
 
   var lastPoint = null;

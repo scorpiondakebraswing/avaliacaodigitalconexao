@@ -174,7 +174,8 @@ var Api = {
 
         var quesitosDoEvento = quesitosVisiveisParaLogin(db, evento, p.login);
         var regrasVoto = evento.config.regras || {};
-        var minChars = regrasVoto.justificativaObrigatoria !== false ? (regrasVoto.minCaracteresJustificativa || 10) : 0;
+        var justObrigatoria = regrasVoto.justificativaObrigatoria !== false;
+        var maxChars = regrasVoto.maxCaracteresJustificativa || 500;
         var valoresValidos = MockDB.gerarValoresNota(regrasVoto.notaMin, regrasVoto.notaMax, regrasVoto.notaTipo);
 
         for (var k = 0; k < quesitosDoEvento.length; k++) {
@@ -182,7 +183,8 @@ var Api = {
           var notaK = Number(p.notas[qv.id]);
           var justK = (p.just[qv.id] || "").trim();
           if (!p.notas[qv.id] || valoresValidos.indexOf(notaK) === -1) return { success: false, message: "Nota inválida para o quesito " + qv.nome + "." };
-          if (justK.length < minChars) return { success: false, message: "Justificativas devem ter no mínimo " + minChars + " caracteres." };
+          if (justObrigatoria && justK.length === 0) return { success: false, message: "Justificativa obrigatória para o quesito " + qv.nome + "." };
+          if (justK.length > maxChars) return { success: false, message: "Justificativa do quesito " + qv.nome + " excede o máximo de " + maxChars + " caracteres." };
         }
         if (regrasVoto.assinaturaObrigatoria !== false && !p.assinatura) {
           return { success: false, message: "Assinatura obrigatória." };
@@ -382,7 +384,7 @@ var Api = {
         var novoEventoId = "evt-" + Date.now();
         db.eventos.push({
           id: novoEventoId, clienteId: p.cliente_id, nome: p.nome, statusConcurso: "A_INICIAR", dataInicio: "", dataFim: "",
-          config: { idAtiva: "", idPreparada: "", statusSistema: "AGUARDANDO", revealIndex: 0, regras: JSON.parse(JSON.stringify(MockDB.REGRAS_PADRAO || { notaMin: 8, notaMax: 10, notaTipo: "fracionada", regraDescarte: "maior_e_menor", desempatePorQuesito: true, justificativaObrigatoria: true, minCaracteresJustificativa: 10, assinaturaObrigatoria: true })) },
+          config: { idAtiva: "", idPreparada: "", statusSistema: "AGUARDANDO", revealIndex: 0, regras: JSON.parse(JSON.stringify(MockDB.REGRAS_PADRAO || { notaMin: 8, notaMax: 10, notaTipo: "fracionada", regraDescarte: "maior_e_menor", desempatePorQuesito: true, justificativaObrigatoria: true, maxCaracteresJustificativa: 500, assinaturaObrigatoria: true })) },
           candidatas: [], votos: [], correcoes: [], logs: []
         });
         MockDB.save(db);
