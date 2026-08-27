@@ -186,8 +186,21 @@ async function login(body) {
 
 /* ============================= quesitos / status ============================= */
 
+async function getQuesitosVisiveisParaLogin(eventoId, login) {
+  const quesitos = await getQuesitosParaEvento(eventoId);
+  if (!login) return quesitos;
+
+  const usuario = await getUsuarioPorCodigo(login);
+  if (!usuario || !usuario.avaliador_individual) return quesitos;
+
+  const { data, error } = await supabase.from('usuario_evento_quesitos').select('quesito_id').eq('codigo', usuario.codigo).eq('evento_id', eventoId);
+  if (error) throw error;
+  const permitidos = new Set((data || []).map((r) => r.quesito_id));
+  return quesitos.filter((q) => permitidos.has(q.id));
+}
+
 async function getQuesitos(body) {
-  return { success: true, quesitos: await getQuesitosParaEvento(body.event_id) };
+  return { success: true, quesitos: await getQuesitosVisiveisParaLogin(body.event_id, body.login) };
 }
 
 async function getEventoRegras(body) {
@@ -375,7 +388,7 @@ async function submitVote(body) {
   const regras = evento.regras || REGRAS_PADRAO;
   if (regras.assinaturaObrigatoria !== false && !body.assinatura) return { success: false, message: 'Assinatura obrigatória' };
 
-  const quesitos = await getQuesitosParaEvento(body.event_id);
+  const quesitos = await getQuesitosVisiveisParaLogin(body.event_id, body.login);
   const linhas = [];
 
   for (const q of quesitos) {
@@ -635,23 +648,53 @@ async function adminListUsuarios(body) {
   if (body && body.cliente_id) q = q.eq('cliente_id', body.cliente_id);
   const { data: usuarios, error } = await q;
   if (error) throw error;
+
   const { data: vinculos } = await supabase.from('usuario_eventos').select('*');
   const map = {};
   (vinculos || []).forEach((v) => { (map[v.codigo] = map[v.codigo] || []).push(v.evento_id); });
-  return { success: true, usuarios: (usuarios || []).map((u) => ({ codigo: u.codigo, nome: u.nome, perfil: u.perfil, ativo: u.ativo, clienteId: u.cliente_id, eventos: map[u.codigo] || [] })) };
+
+  const { data: quesitosVinculos } = await supabase.from('usuario_evento_quesitos').select('*');
+  const mapQuesitos = {};
+  (quesitosVinculos || []).forEach((v) => {
+    mapQuesitos[v.codigo] = mapQuesitos[v.codigo] || {};
+    mapQuesitos[v.codigo][v.evento_id] = mapQuesitos[v.codigo][v.evento_id] || [];
+    mapQuesitos[v.codigo][v.evento_id].push(v.quesito_id);
+  });
+
+  return {
+    success: true,
+    usuarios: (usuarios || []).map((u) => ({
+      codigo: u.codigo, nome: u.nome, perfil: u.perfil, ativo: u.ativo, clienteId: u.cliente_id,
+      eventos: map[u.codigo] || [], avaliadorIndividual: u.avaliador_individual || false,
+      quesitosPorEvento: mapQuesitos[u.codigo] || {}
+    }))
+  };
 }
 
 async function adminSaveUsuario(body) {
   const codigo = String(body.codigo).trim().toUpperCase();
   const ativo = body.ativo !== false;
+  const avaliadorIndividual = !!body.avaliadorIndividual;
 
-  const { error } = await supabase.from('usuarios').upsert({ codigo, nome: body.nome, perfil: body.perfil, ativo, cliente_id: body.clienteId || body.cliente_id || null });
+  const { error } = await supabase.from('usuarios').upsert({
+    codigo, nome: body.nome, perfil: body.perfil, ativo, cliente_id: body.clienteId || body.cliente_id || null,
+    avaliador_individual: avaliadorIndividual
+  });
   if (error) throw error;
 
   await supabase.from('usuario_eventos').delete().eq('codigo', codigo);
   const eventos = body.eventos || [];
   if (eventos.length) {
     await supabase.from('usuario_eventos').insert(eventos.map((eid) => ({ codigo, evento_id: eid })));
+  }
+
+  await supabase.from('usuario_evento_quesitos').delete().eq('codigo', codigo);
+  if (avaliadorIndividual && body.quesitosPorEvento) {
+    const linhas = [];
+    Object.keys(body.quesitosPorEvento).forEach((eid) => {
+      (body.quesitosPorEvento[eid] || []).forEach((qid) => linhas.push({ codigo, evento_id: eid, quesito_id: qid }));
+    });
+    if (linhas.length) await supabase.from('usuario_evento_quesitos').insert(linhas);
   }
 
   return { success: true, message: 'Usuário salvo' };

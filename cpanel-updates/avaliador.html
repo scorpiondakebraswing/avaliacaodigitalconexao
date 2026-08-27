@@ -96,12 +96,12 @@
   </div>
 </div>
 
-<script src="assets/js/config.js?v=9"></script>
-<script src="assets/js/mock-data.js?v=9"></script>
-<script src="assets/js/api.js?v=9"></script>
-<script src="assets/js/session.js?v=9"></script>
-<script src="assets/js/toast.js?v=9"></script>
-<script src="assets/js/shell.js?v=9"></script>
+<script src="assets/js/config.js?v=10"></script>
+<script src="assets/js/mock-data.js?v=10"></script>
+<script src="assets/js/api.js?v=10"></script>
+<script src="assets/js/session.js?v=10"></script>
+<script src="assets/js/toast.js?v=10"></script>
+<script src="assets/js/shell.js?v=10"></script>
 <script>
   var session = Session.require(['avaliador']);
   if (session) {
@@ -186,7 +186,7 @@
         pill.innerHTML = '<span class="badge-dot"></span>Em avaliação';
       }
 
-      Api.call('get_quesitos', { event_id: EVT }).then(function (qres) {
+      Api.call('get_quesitos', { event_id: EVT, login: session.codigo }).then(function (qres) {
         quesitosAtuais = qres.quesitos || [];
         renderQuesitos();
         prefillMyVote();
@@ -196,6 +196,14 @@
 
   function renderQuesitos() {
     var container = document.getElementById('quesitosContainer');
+
+    if (!quesitosAtuais.length) {
+      container.innerHTML = '<div class="empty-state"><h3>Nenhum quesito liberado para você</h3><p>Fale com o administrador — ele precisa te habilitar para pelo menos um quesito neste evento.</p></div>';
+      document.getElementById('btnEnviarVoto').style.display = 'none';
+      return;
+    }
+    document.getElementById('btnEnviarVoto').style.display = '';
+
     var justObrigatoria = regrasAtuais.justificativaObrigatoria !== false;
     var placeholderJust = justObrigatoria
       ? 'Justificativa (mínimo ' + (regrasAtuais.minCaracteresJustificativa || 10) + ' caracteres)'

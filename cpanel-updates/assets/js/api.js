@@ -7,6 +7,17 @@
    trocar de demo para produção não exige mudar as telas.
    ========================================================= */
 
+function quesitosVisiveisParaLogin(db, evento, login) {
+  var quesitos = MockDB.getQuesitosParaEvento(db, evento.id);
+  if (!login) return quesitos;
+  var user = db.usuarios.find(function (u) { return u.codigo.toUpperCase() === String(login).toUpperCase(); });
+  if (user && user.avaliadorIndividual) {
+    var permitidos = (user.quesitosPorEvento || {})[evento.id] || [];
+    return quesitos.filter(function (q) { return permitidos.indexOf(q.id) !== -1; });
+  }
+  return quesitos;
+}
+
 var Api = {
 
   isDemo: function () {
@@ -71,8 +82,9 @@ var Api = {
       case "get_evento_regras":
         return { success: true, regras: evento.config.regras || {} };
 
-      case "get_quesitos":
-        return { success: true, quesitos: MockDB.getQuesitosParaEvento(db, evento.id) };
+      case "get_quesitos": {
+        return { success: true, quesitos: quesitosVisiveisParaLogin(db, evento, p.login) };
+      }
 
       case "get_status_concurso":
         return { success: true, statusConcurso: evento.statusConcurso, statusSistema: evento.config.statusSistema, nomeConcurso: evento.nome, dataInicio: evento.dataInicio || "", dataFim: evento.dataFim || "" };
@@ -160,7 +172,7 @@ var Api = {
         if (evento.config.idAtiva !== p.id_candidata) return { success: false, message: "Esta candidata não está ativa para votação" };
         if (evento.config.statusSistema !== "EM_AVALIACAO") return { success: false, message: "A avaliação está interrompida. Aguarde o presidente retomar a avaliação." };
 
-        var quesitosDoEvento = MockDB.getQuesitosParaEvento(db, evento.id);
+        var quesitosDoEvento = quesitosVisiveisParaLogin(db, evento, p.login);
         var regrasVoto = evento.config.regras || {};
         var minChars = regrasVoto.justificativaObrigatoria !== false ? (regrasVoto.minCaracteresJustificativa || 10) : 0;
         var valoresValidos = MockDB.gerarValoresNota(regrasVoto.notaMin, regrasVoto.notaMax, regrasVoto.notaTipo);
@@ -398,14 +410,18 @@ var Api = {
         var existenteU = db.usuarios.find(function (u) { return u.codigo === p.codigo; });
         var novoAtivo = p.ativo !== undefined ? !!p.ativo : true;
         var clienteIdSalvar = p.clienteId !== undefined ? p.clienteId : (p.cliente_id !== undefined ? p.cliente_id : null);
+        var avaliadorIndividual = !!p.avaliadorIndividual;
+        var quesitosPorEvento = avaliadorIndividual ? (p.quesitosPorEvento || {}) : {};
         if (existenteU) {
           existenteU.nome = p.nome;
           existenteU.perfil = p.perfil;
           existenteU.eventos = p.eventos || [];
           existenteU.ativo = p.ativo !== undefined ? !!p.ativo : existenteU.ativo;
+          existenteU.avaliadorIndividual = avaliadorIndividual;
+          existenteU.quesitosPorEvento = quesitosPorEvento;
           if (clienteIdSalvar !== null) existenteU.clienteId = clienteIdSalvar;
         } else {
-          db.usuarios.push({ codigo: p.codigo, nome: p.nome, perfil: p.perfil, eventos: p.eventos || [], ativo: novoAtivo, clienteId: clienteIdSalvar });
+          db.usuarios.push({ codigo: p.codigo, nome: p.nome, perfil: p.perfil, eventos: p.eventos || [], ativo: novoAtivo, clienteId: clienteIdSalvar, avaliadorIndividual: avaliadorIndividual, quesitosPorEvento: quesitosPorEvento });
         }
         MockDB.save(db);
         return { success: true, message: "Usuário salvo" };
