@@ -30,6 +30,7 @@ Dê commit e push. A Vercel vai começar a rodar o deploy sozinha (é esse o "vi
 2. Cole todo o conteúdo de `supabase/schema.sql` e rode.
 3. Isso cria as tabelas (`usuarios`, `eventos`, `quesitos_globais`, `grupos_candidatas`, `evento_candidatas`, `votos`, `correcoes`, `logs`, `encerramentos`) e já deixa um evento de demonstração (`evt-1`) cadastrado, com os mesmos códigos de acesso do modo demo (`ADM-2027`, `PRES-2027`, `AVAL-2027`, `CONS-2027`) — bom para testar antes de cadastrar seu evento real.
 4. Se não quiser os dados de demonstração, apague os blocos `insert into ...` no fim do arquivo antes de rodar (ou rode tudo e depois vá no Painel do Administrador do sistema e apague/edite pela interface).
+5. **Depois**, rode também `supabase/migration_002_clientes.sql` (num novo comando no SQL Editor). Esse arquivo adiciona a camada de **Master / Grupos de clientes com licença**: cria a tabela `clientes`, adiciona a coluna `cliente_id` em `usuarios`/`eventos`/`quesitos_globais`/`grupos_candidatas`, e cria um usuário `MASTER-2027` que enxerga e gerencia todos os grupos de clientes. É incremental — não apaga nada do que já existe, só organiza os dados atuais dentro de um cliente padrão chamado "CONEXÃO JUNINA (PADRÃO)".
 
 ## 3. Configurar as variáveis de ambiente na Vercel
 
@@ -55,12 +56,16 @@ Se vier `{"success":true,"usuario":{...}}`, o backend está funcionando.
 
 ## 5. Apontar o front-end (cPanel) para a nova API
 
-No pacote do front-end que você já subiu no cPanel, dois arquivos precisam ser atualizados — estão prontos na pasta `cpanel-updates/` deste pacote:
+No pacote do front-end que você já subiu no cPanel, os arquivos que precisam ser atualizados estão prontos na pasta `cpanel-updates/` deste pacote:
 
-- `assets/js/config.js` — troque `API_URL` pela URL da sua função (`https://SEU-PROJETO.vercel.app/api/action`) e `EVENT_ID` pelo ID do evento real (`evt-1` se for usar o de demonstração, ou o ID que você criar).
-- `assets/js/api.js` — já ajustado para falar `application/json` com a Vercel (a versão anterior usava `text/plain` por causa de uma particularidade do Apps Script, que não é mais necessária).
+- `index.html` — agora também redireciona corretamente o perfil `master` para `master.html` após o login.
+- `master.html` — **arquivo novo**: o Painel Master (grupos de clientes, licença, usuários).
+- `admin.html` — atualizado: todas as ações agora informam o `cliente_id`, o botão "Trocar código de acesso" foi adicionado, e "+ Novo evento" cria um evento de verdade no Supabase.
+- `assets/js/config.js` — troque `API_URL` pela URL da sua função (`https://SEU-PROJETO.vercel.app/api/action`) e `EVENT_ID` pelo ID do evento real.
+- `assets/js/api.js`, `assets/js/session.js`, `assets/js/shell.js`, `assets/js/toast.js`, `assets/js/mock-data.js` — atualizados (perfil master, sessão, navegação).
+- `assets/css/style.css` — ajustes de conforto em telas pequenas (celular/tablet): botões e campos maiores para toque, tabelas com rolagem suave, e os campos de formulário não disparam mais aquele zoom automático chato do iPhone ao tocar neles.
 
-Suba os dois arquivos por cima dos antigos no cPanel (mesmo caminho: `assets/js/`) e dê Ctrl+F5 no navegador para não pegar versão em cache.
+Suba tudo isso por cima dos arquivos antigos no cPanel (mantendo os mesmos caminhos) e dê Ctrl+F5 no navegador para não pegar versão em cache.
 
 A partir daí, todo o sistema (login, votação, apuração, telão, painel do administrador) passa a gravar direto no Supabase, em vez da planilha do Google.
 
@@ -68,7 +73,17 @@ A partir daí, todo o sistema (login, votação, apuração, telão, painel do a
 
 Não precisa apagar nada imediatamente. Recomendo manter o Apps Script publicado como fallback por um tempo (você pode voltar a apontar o `API_URL` pra ele se algo der errado no Supabase), e só descontinuar de vez depois de rodar um evento real de teste completo na stack nova.
 
-## 7. Próximos passos naturais dessa migração
+## 7. Master, grupos de clientes e licença
+
+A partir da migração 002, existe um quarto perfil: **master**. Ele não pertence a nenhum grupo de clientes — enxerga e gerencia todos.
+
+1. Logue com `MASTER-2027` (crie um código melhor depois, pela própria tela — veja "Trocar código de acesso" no painel).
+2. No **Painel Master**, crie um "Grupo de clientes" pra cada festival/organização que for usar a plataforma, definindo o **nome** e a **data de validade da licença**.
+3. Dentro do grupo, crie o primeiro usuário **Administrador** daquele cliente. É esse admin que, depois, entra no próprio Painel do Administrador e cadastra os eventos, quesitos, grupos/candidatas e demais usuários (presidente, avaliadores, consultores) daquele cliente específico.
+4. Quando a `data de validade da licença` de um grupo passar, todos os usuários dele (menos o master) ficam impedidos de logar, com uma mensagem clara pedindo para contatar o master.
+5. Use o botão **Editar → Trocar código de acesso** (tanto no Painel Master quanto no Painel do Administrador) sempre que precisar renomear o código de alguém — nunca edite a coluna `codigo` direto pela tabela do Supabase, porque isso quebra a referência com os eventos que aquele usuário acessa (o Supabase corretamente bloqueia essa edição direta).
+
+## 8. Próximos passos naturais dessa migração
 
 - **Domínio próprio para a API**: hoje a URL fica em `algo.vercel.app`; se quiser, dá pra configurar um subdomínio seu (ex.: `api.conexaojunina.com.br`) apontando pra Vercel.
 - **Autenticação mais forte**: hoje o login por "código" consulta a tabela `usuarios` direto — funciona bem para o formato atual do sistema. Se um dia quiser adicionar senha, dá pra estender a tabela `usuarios` com um hash de senha sem mudar o resto do contrato.

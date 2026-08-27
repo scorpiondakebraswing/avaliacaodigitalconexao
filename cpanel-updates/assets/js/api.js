@@ -55,7 +55,17 @@ var Api = {
         var user = db.usuarios.find(function (u) { return u.codigo.toUpperCase() === String(p.codigo || "").toUpperCase(); });
         if (!user) return { success: false, message: "Código não reconhecido. Verifique com a organização do seu evento." };
         if (user.ativo === false) return { success: false, message: "Este usuário está desativado. Fale com o administrador do seu evento." };
-        return { success: true, usuario: { codigo: user.codigo, nome: user.nome, perfil: user.perfil, eventoId: user.eventos[0] } };
+
+        if (user.perfil !== "master") {
+          if (!user.clienteId) return { success: false, message: "Este usuário não está associado a nenhum grupo de clientes. Fale com o master da plataforma." };
+          var clienteLogin = db.clientes.find(function (c) { return c.id === user.clienteId; });
+          if (!clienteLogin || clienteLogin.ativo === false) return { success: false, message: "O acesso da sua organização está desativado. Fale com o master da plataforma." };
+          if (clienteLogin.dataValidadeLicenca && new Date(clienteLogin.dataValidadeLicenca) < new Date()) {
+            return { success: false, message: "A licença da sua organização expirou em " + new Date(clienteLogin.dataValidadeLicenca).toLocaleDateString("pt-BR") + ". Fale com o master da plataforma." };
+          }
+        }
+
+        return { success: true, usuario: { codigo: user.codigo, nome: user.nome, perfil: user.perfil, eventoId: user.eventos[0], clienteId: user.clienteId || null } };
       }
 
       case "get_evento_regras":
@@ -346,7 +356,7 @@ var Api = {
       case "admin_list_eventos":
         return {
           success: true,
-          eventos: db.eventos.map(function (e) {
+          eventos: db.eventos.filter(function (e) { return !p.cliente_id || e.clienteId === p.cliente_id; }).map(function (e) {
             return {
               id: e.id, nome: e.nome, statusConcurso: e.statusConcurso,
               dataInicio: e.dataInicio, dataFim: e.dataFim,
@@ -355,19 +365,47 @@ var Api = {
           })
         };
 
+      case "admin_create_evento": {
+        if (!p.cliente_id) return { success: false, message: "Cliente não informado" };
+        var novoEventoId = "evt-" + Date.now();
+        db.eventos.push({
+          id: novoEventoId, clienteId: p.cliente_id, nome: p.nome, statusConcurso: "A_INICIAR", dataInicio: "", dataFim: "",
+          config: { idAtiva: "", idPreparada: "", statusSistema: "AGUARDANDO", revealIndex: 0, regras: JSON.parse(JSON.stringify(MockDB.REGRAS_PADRAO || { notaMin: 8, notaMax: 10, notaTipo: "fracionada", regraDescarte: "maior_e_menor", minCaracteresJustificativa: 10, assinaturaObrigatoria: true })) },
+          candidatas: [], votos: [], correcoes: [], logs: []
+        });
+        MockDB.save(db);
+        return { success: true, message: "Evento criado", id: novoEventoId };
+      }
+
       case "admin_list_usuarios":
-        return { success: true, usuarios: db.usuarios };
+        return { success: true, usuarios: db.usuarios.filter(function (u) { return !p.cliente_id || u.clienteId === p.cliente_id; }) };
+
+      case "trocar_codigo_usuario": {
+        var codAntigo = String(p.codigoAntigo || "").toUpperCase();
+        var codNovo = String(p.codigoNovo || "").toUpperCase();
+        var alvo = db.usuarios.find(function (u) { return u.codigo === codAntigo; });
+        if (!alvo) return { success: false, message: "Usuário não encontrado" };
+        if (db.usuarios.some(function (u) { return u.codigo === codNovo; })) return { success: false, message: "Já existe um usuário com esse código" };
+        alvo.codigo = codNovo;
+        MockDB.save(db);
+        return { success: true, message: "Código de acesso atualizado com sucesso" };
+      }
+
+      case "admin_create_evento":
+        return { success: false, message: "Criar um segundo evento não é suportado no modo demonstração. Conecte o backend real (Supabase) para multi-evento completo." };
 
       case "admin_save_usuario": {
         var existenteU = db.usuarios.find(function (u) { return u.codigo === p.codigo; });
         var novoAtivo = p.ativo !== undefined ? !!p.ativo : true;
+        var clienteIdSalvar = p.clienteId !== undefined ? p.clienteId : (p.cliente_id !== undefined ? p.cliente_id : null);
         if (existenteU) {
           existenteU.nome = p.nome;
           existenteU.perfil = p.perfil;
           existenteU.eventos = p.eventos || [];
           existenteU.ativo = p.ativo !== undefined ? !!p.ativo : existenteU.ativo;
+          if (clienteIdSalvar !== null) existenteU.clienteId = clienteIdSalvar;
         } else {
-          db.usuarios.push({ codigo: p.codigo, nome: p.nome, perfil: p.perfil, eventos: p.eventos || [], ativo: novoAtivo });
+          db.usuarios.push({ codigo: p.codigo, nome: p.nome, perfil: p.perfil, eventos: p.eventos || [], ativo: novoAtivo, clienteId: clienteIdSalvar });
         }
         MockDB.save(db);
         return { success: true, message: "Usuário salvo" };
@@ -378,23 +416,73 @@ var Api = {
         MockDB.save(db);
         return { success: true, message: "Usuário removido" };
 
+      case "trocar_codigo_usuario": {
+        var antigoCod = String(p.codigoAntigo || "").trim().toUpperCase();
+        var novoCod = String(p.codigoNovo || "").trim().toUpperCase();
+        if (!antigoCod || !novoCod) return { success: false, message: "Informe o código atual e o novo código." };
+        var usuarioAntigo = db.usuarios.find(function (u) { return u.codigo === antigoCod; });
+        if (!usuarioAntigo) return { success: false, message: "Usuário com código " + antigoCod + " não encontrado" };
+        if (db.usuarios.some(function (u) { return u.codigo === novoCod; })) return { success: false, message: "Já existe um usuário com o código " + novoCod };
+
+        usuarioAntigo.codigo = novoCod;
+        db.eventos.forEach(function (e) {
+          // nada a fazer no demo: eventos.usuarios (evento.votos etc já referenciam pelo login que ficou registrado no voto, não precisamos migrar histórico aqui)
+        });
+        MockDB.save(db);
+        return { success: true, message: "Código de acesso atualizado com sucesso" };
+      }
+
       /* -------- quesitos: catálogo GLOBAL -------- */
       case "get_quesitos_globais":
-        return { success: true, quesitos: db.quesitosGlobais.slice().sort(function (a, b) { return a.ordem - b.ordem; }) };
+        return { success: true, quesitos: db.quesitosGlobais.filter(function (q) { return !p.cliente_id || q.clienteId === p.cliente_id; }).sort(function (a, b) { return a.ordem - b.ordem; }) };
 
       case "admin_save_quesitos":
-        db.quesitosGlobais = p.quesitos;
+        db.quesitosGlobais = db.quesitosGlobais.filter(function (q) { return p.cliente_id && q.clienteId !== p.cliente_id; })
+          .concat((p.quesitos || []).map(function (q) { q.clienteId = p.cliente_id || q.clienteId; return q; }));
         MockDB.save(db);
         return { success: true, message: "Quesitos atualizados" };
 
       /* -------- grupos/candidatas: catálogo GLOBAL -------- */
       case "get_grupos_globais":
-        return { success: true, grupos: db.gruposCandidatas };
+        return { success: true, grupos: db.gruposCandidatas.filter(function (g) { return !p.cliente_id || g.clienteId === p.cliente_id; }) };
 
       case "admin_save_candidatas":
-        db.gruposCandidatas = p.grupos;
+        db.gruposCandidatas = db.gruposCandidatas.filter(function (g) { return p.cliente_id && g.clienteId !== p.cliente_id; })
+          .concat((p.grupos || []).map(function (g) { g.clienteId = p.cliente_id || g.clienteId; return g; }));
         MockDB.save(db);
         return { success: true, message: "Grupos atualizados" };
+
+      /* -------- master: clientes/licenças -------- */
+      case "master_list_clientes": {
+        var hoje = new Date();
+        return {
+          success: true,
+          clientes: db.clientes.map(function (c) {
+            var expirada = c.dataValidadeLicenca && new Date(c.dataValidadeLicenca) < hoje;
+            return {
+              id: c.id, nome: c.nome, dataValidadeLicenca: c.dataValidadeLicenca, ativo: c.ativo,
+              statusLicenca: !c.ativo ? "DESATIVADO" : (expirada ? "EXPIRADA" : "ATIVA")
+            };
+          })
+        };
+      }
+
+      case "master_save_cliente": {
+        var clienteExistente = p.id && db.clientes.find(function (c) { return c.id === p.id; });
+        if (clienteExistente) {
+          clienteExistente.nome = p.nome;
+          clienteExistente.dataValidadeLicenca = p.dataValidadeLicenca || "";
+          clienteExistente.ativo = p.ativo !== false;
+        } else {
+          var novoClienteId = p.id || ("cli-" + Date.now());
+          db.clientes.push({ id: novoClienteId, nome: p.nome, dataValidadeLicenca: p.dataValidadeLicenca || "", ativo: p.ativo !== false });
+        }
+        MockDB.save(db);
+        return { success: true, message: "Grupo de clientes salvo" };
+      }
+
+      case "master_list_usuarios":
+        return { success: true, usuarios: db.usuarios.filter(function (u) { return !p.cliente_id || u.clienteId === p.cliente_id; }) };
 
       case "admin_set_status_concurso":
         evento.statusConcurso = p.status;

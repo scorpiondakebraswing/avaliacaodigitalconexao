@@ -39,8 +39,8 @@ async function route(action, body) {
 
     case 'get_quesitos': return getQuesitos(body);
     case 'get_evento_regras': return getEventoRegras(body);
-    case 'get_quesitos_globais': return getQuesitosGlobais();
-    case 'get_grupos_globais': return getGruposGlobais();
+    case 'get_quesitos_globais': return getQuesitosGlobais(body);
+    case 'get_grupos_globais': return getGruposGlobais(body);
     case 'list_accessible_eventos': return listAccessibleEventos(body);
 
     case 'get_status_concurso': return getStatusConcurso(body);
@@ -82,8 +82,8 @@ async function route(action, body) {
     case 'get_telao_reveal_state': return getTelaoRevealState(body);
     case 'set_telao_reveal_index': return setTelaoRevealIndex(body);
 
-    case 'admin_list_eventos': return adminListEventos();
-    case 'admin_list_usuarios': return adminListUsuarios();
+    case 'admin_list_eventos': return adminListEventos(body);
+    case 'admin_list_usuarios': return adminListUsuarios(body);
     case 'admin_save_usuario': return adminSaveUsuario(body);
     case 'admin_remove_usuario': return adminRemoveUsuario(body);
     case 'admin_save_quesitos': return adminSaveQuesitos(body);
@@ -91,6 +91,13 @@ async function route(action, body) {
     case 'admin_get_evento_config': return adminGetEventoConfig(body);
     case 'admin_save_evento_config': return adminSaveEventoConfig(body);
     case 'admin_set_status_concurso': return adminSetStatusConcurso(body);
+    case 'admin_create_evento': return adminCreateEvento(body);
+
+    case 'trocar_codigo_usuario': return trocarCodigoUsuario(body);
+
+    case 'master_list_clientes': return masterListClientes();
+    case 'master_save_cliente': return masterSaveCliente(body);
+    case 'master_list_usuarios': return adminListUsuarios(body);
 
     default:
       return { success: false, message: 'Ação não reconhecida: ' + action };
@@ -158,10 +165,23 @@ async function login(body) {
   if (!usuario) return { success: false, message: 'Código não reconhecido. Verifique com a organização do seu evento.' };
   if (usuario.ativo === false) return { success: false, message: 'Este usuário está desativado. Fale com o administrador do seu evento.' };
 
+  // perfil master não pertence a nenhum cliente — gerencia todos.
+  if (usuario.perfil !== 'master') {
+    if (!usuario.cliente_id) return { success: false, message: 'Este usuário não está associado a nenhum grupo de clientes. Fale com o master da plataforma.' };
+
+    const { data: cliente } = await supabase.from('clientes').select('*').eq('id', usuario.cliente_id).maybeSingle();
+    if (!cliente || cliente.ativo === false) {
+      return { success: false, message: 'O acesso da sua organização está desativado. Fale com o master da plataforma.' };
+    }
+    if (cliente.data_validade_licenca && new Date(cliente.data_validade_licenca) < new Date()) {
+      return { success: false, message: 'A licença da sua organização expirou em ' + new Date(cliente.data_validade_licenca).toLocaleDateString('pt-BR') + '. Fale com o master da plataforma.' };
+    }
+  }
+
   const eventoId = usuario.eventos[0] || '';
   if (eventoId) await registrarLog(eventoId, 'LOGIN', usuario.nome, usuario.perfil.toUpperCase(), 'Login efetuado com sucesso');
 
-  return { success: true, usuario: { codigo: usuario.codigo, nome: usuario.nome, perfil: usuario.perfil, eventoId, eventos: usuario.eventos } };
+  return { success: true, usuario: { codigo: usuario.codigo, nome: usuario.nome, perfil: usuario.perfil, eventoId, eventos: usuario.eventos, clienteId: usuario.cliente_id || null } };
 }
 
 /* ============================= quesitos / status ============================= */
@@ -175,9 +195,12 @@ async function getEventoRegras(body) {
   return { success: true, regras: evento ? evento.regras : REGRAS_PADRAO };
 }
 
-async function getQuesitosGlobais() {
+async function getQuesitosGlobais(body) {
+  let qGlobais = supabase.from('quesitos_globais').select('*').order('ordem');
+  if (body && body.cliente_id) qGlobais = qGlobais.eq('cliente_id', body.cliente_id);
+
   const [{ data: globais, error: e1 }, { data: aplic, error: e2 }] = await Promise.all([
-    supabase.from('quesitos_globais').select('*').order('ordem'),
+    qGlobais,
     supabase.from('quesito_eventos').select('*')
   ]);
   if (e1) throw e1;
@@ -193,8 +216,10 @@ async function getQuesitosGlobais() {
   };
 }
 
-async function getGruposGlobais() {
-  const { data, error } = await supabase.from('grupos_candidatas').select('*').order('nome');
+async function getGruposGlobais(body) {
+  let q = supabase.from('grupos_candidatas').select('*').order('nome');
+  if (body && body.cliente_id) q = q.eq('cliente_id', body.cliente_id);
+  const { data, error } = await q;
   if (error) throw error;
   return { success: true, grupos: data || [] };
 }
@@ -204,9 +229,12 @@ async function listAccessibleEventos(body) {
   let eventos;
 
   if (perfil === 'admin') {
-    const { data, error } = await supabase.from('eventos').select('*');
-    if (error) throw error;
-    eventos = data || [];
+    const usuario = await getUsuarioPorCodigo(String(body.codigo || '').trim());
+    if (!usuario || !usuario.cliente_id) { eventos = []; } else {
+      const { data, error } = await supabase.from('eventos').select('*').eq('cliente_id', usuario.cliente_id);
+      if (error) throw error;
+      eventos = data || [];
+    }
   } else {
     const usuario = await getUsuarioPorCodigo(String(body.codigo || '').trim());
     const ids = usuario ? usuario.eventos : [];
@@ -578,8 +606,10 @@ async function setTelaoRevealIndex(body) {
 
 /* ============================= admin ============================= */
 
-async function adminListEventos() {
-  const { data: eventos, error } = await supabase.from('eventos').select('*');
+async function adminListEventos(body) {
+  let q = supabase.from('eventos').select('*');
+  if (body && body.cliente_id) q = q.eq('cliente_id', body.cliente_id);
+  const { data: eventos, error } = await q;
   if (error) throw error;
   const resultado = await Promise.all((eventos || []).map(async (e) => {
     const [candidatas, quesitos] = await Promise.all([getCandidatasDoEvento(e.id), getQuesitosParaEvento(e.id)]);
@@ -588,20 +618,33 @@ async function adminListEventos() {
   return { success: true, eventos: resultado };
 }
 
-async function adminListUsuarios() {
-  const { data: usuarios, error } = await supabase.from('usuarios').select('*');
+async function adminCreateEvento(body) {
+  if (!body.cliente_id) return { success: false, message: 'Cliente não informado' };
+  const id = 'evt-' + Date.now();
+  const { error } = await supabase.from('eventos').insert({
+    id, nome: body.nome, cliente_id: body.cliente_id, status_concurso: 'A_INICIAR',
+    status_sistema: 'AGUARDANDO', reveal_index: 0, regras: REGRAS_PADRAO
+  });
+  if (error) throw error;
+  return { success: true, message: 'Evento criado', id };
+}
+
+async function adminListUsuarios(body) {
+  let q = supabase.from('usuarios').select('*');
+  if (body && body.cliente_id) q = q.eq('cliente_id', body.cliente_id);
+  const { data: usuarios, error } = await q;
   if (error) throw error;
   const { data: vinculos } = await supabase.from('usuario_eventos').select('*');
   const map = {};
   (vinculos || []).forEach((v) => { (map[v.codigo] = map[v.codigo] || []).push(v.evento_id); });
-  return { success: true, usuarios: (usuarios || []).map((u) => ({ codigo: u.codigo, nome: u.nome, perfil: u.perfil, ativo: u.ativo, eventos: map[u.codigo] || [] })) };
+  return { success: true, usuarios: (usuarios || []).map((u) => ({ codigo: u.codigo, nome: u.nome, perfil: u.perfil, ativo: u.ativo, clienteId: u.cliente_id, eventos: map[u.codigo] || [] })) };
 }
 
 async function adminSaveUsuario(body) {
   const codigo = String(body.codigo).trim().toUpperCase();
   const ativo = body.ativo !== false;
 
-  const { error } = await supabase.from('usuarios').upsert({ codigo, nome: body.nome, perfil: body.perfil, ativo });
+  const { error } = await supabase.from('usuarios').upsert({ codigo, nome: body.nome, perfil: body.perfil, ativo, cliente_id: body.clienteId || body.cliente_id || null });
   if (error) throw error;
 
   await supabase.from('usuario_eventos').delete().eq('codigo', codigo);
@@ -618,13 +661,29 @@ async function adminRemoveUsuario(body) {
   return { success: true, message: 'Usuário removido' };
 }
 
+// Troca o código de acesso de um usuário sem violar a referência em
+// usuario_eventos — roda como uma função de banco (transação única).
+async function trocarCodigoUsuario(body) {
+  const codigoAntigo = String(body.codigoAntigo || '').trim().toUpperCase();
+  const codigoNovo = String(body.codigoNovo || '').trim().toUpperCase();
+  if (!codigoAntigo || !codigoNovo) return { success: false, message: 'Informe o código atual e o novo código.' };
+
+  const { error } = await supabase.rpc('trocar_codigo_usuario', { old_codigo: codigoAntigo, new_codigo: codigoNovo });
+  if (error) return { success: false, message: error.message };
+  return { success: true, message: 'Código de acesso atualizado com sucesso' };
+}
+
 async function adminSaveQuesitos(body) {
   const quesitos = body.quesitos || [];
   const ids = quesitos.map((q) => q.id);
+  const clienteId = body.cliente_id;
 
-  await supabase.from('quesitos_globais').delete().not('id', 'in', `(${ids.join(',') || 'null'})`);
+  let del = supabase.from('quesitos_globais').delete().not('id', 'in', `(${ids.join(',') || 'null'})`);
+  if (clienteId) del = del.eq('cliente_id', clienteId);
+  await del;
+
   await supabase.from('quesitos_globais').upsert(quesitos.map((q) => ({
-    id: q.id, nome: q.nome, peso: q.peso, ordem: q.ordem, valido_para_todos: q.validoParaTodos !== false
+    id: q.id, nome: q.nome, peso: q.peso, ordem: q.ordem, valido_para_todos: q.validoParaTodos !== false, cliente_id: clienteId
   })));
 
   await supabase.from('quesito_eventos').delete().in('quesito_id', ids.length ? ids : ['__none__']);
@@ -639,7 +698,8 @@ async function adminSaveQuesitos(body) {
 
 async function adminSaveCandidatas(body) {
   const grupos = body.grupos || [];
-  const { error } = await supabase.from('grupos_candidatas').upsert(grupos.map((g) => ({ id: g.id, nome: g.nome, cidade: g.cidade || '', estado: g.estado || '' })));
+  const clienteId = body.cliente_id;
+  const { error } = await supabase.from('grupos_candidatas').upsert(grupos.map((g) => ({ id: g.id, nome: g.nome, cidade: g.cidade || '', estado: g.estado || '', cliente_id: clienteId })));
   if (error) throw error;
   return { success: true, message: 'Grupos atualizados' };
 }
@@ -693,4 +753,31 @@ async function adminSaveEventoConfig(body) {
 async function adminSetStatusConcurso(body) {
   await supabase.from('eventos').update({ status_concurso: body.status }).eq('id', body.event_id);
   return { success: true, message: 'Status do concurso atualizado' };
+}
+
+/* ============================= master (clientes / licenças) ============================= */
+
+async function masterListClientes() {
+  const { data, error } = await supabase.from('clientes').select('*').order('nome');
+  if (error) throw error;
+  const hoje = new Date();
+  return {
+    success: true,
+    clientes: (data || []).map((c) => {
+      const expirada = c.data_validade_licenca && new Date(c.data_validade_licenca) < hoje;
+      return {
+        id: c.id, nome: c.nome, dataValidadeLicenca: c.data_validade_licenca, ativo: c.ativo,
+        statusLicenca: !c.ativo ? 'DESATIVADO' : (expirada ? 'EXPIRADA' : 'ATIVA')
+      };
+    })
+  };
+}
+
+async function masterSaveCliente(body) {
+  const id = body.id || ('cli-' + Date.now());
+  const { error } = await supabase.from('clientes').upsert({
+    id, nome: body.nome, data_validade_licenca: body.dataValidadeLicenca || null, ativo: body.ativo !== false
+  });
+  if (error) throw error;
+  return { success: true, message: 'Grupo de clientes salvo', id };
 }

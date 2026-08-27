@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Painel Master — Avaliação Digital 2.0</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;700;800&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/css/style.css?v=6">
+</head>
+<body>
+
+<div class="sidebar-overlay" data-sidebar-overlay></div>
+
+<div class="app-shell">
+
+  <aside class="app-sidebar">
+    <div class="app-sidebar__brand">
+      <div class="app-sidebar__brand-mark">👑</div>
+      <div class="app-sidebar__brand-text">
+        <strong>Avaliação Digital</strong>
+        <span>Conexão Junina · 2.0</span>
+      </div>
+    </div>
+
+    <div class="app-sidebar__event">
+      <p class="app-sidebar__event-label">Perfil</p>
+      <p class="app-sidebar__event-name">Master da plataforma</p>
+    </div>
+
+    <nav class="app-nav" data-app-nav></nav>
+
+    <div class="app-sidebar__foot">
+      <div class="app-user">
+        <div class="app-user__avatar" data-user-avatar>—</div>
+        <div>
+          <div class="app-user__name" data-user-name>—</div>
+          <div class="app-user__role" data-user-role>—</div>
+        </div>
+      </div>
+      <button class="logout-btn" data-logout>Sair do sistema</button>
+    </div>
+  </aside>
+
+  <div class="app-main">
+    <div class="mobile-topbar">
+      <strong>Avaliação Digital</strong>
+      <button class="mobile-topbar__toggle" data-sidebar-toggle aria-label="Abrir menu">☰</button>
+    </div>
+
+    <header class="app-topbar">
+      <div>
+        <h1>Painel Master</h1>
+        <p class="app-topbar__sub">Crie grupos de clientes, defina a validade da licença e gerencie os usuários de cada um.</p>
+      </div>
+    </header>
+
+    <div class="app-content">
+
+      <!-- ===================== CLIENTES ===================== -->
+      <div class="card">
+        <div class="card__head">
+          <div>
+            <h2 class="card__title">Grupos de clientes</h2>
+            <p class="card__desc">Cada grupo é uma licença independente — dados, usuários e eventos não se misturam entre grupos.</p>
+          </div>
+          <button class="btn btn-primary btn-sm" id="btnNovoCliente">+ Novo grupo de clientes</button>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Nome</th><th>Validade da licença</th><th>Status</th><th>Ações</th></tr></thead>
+            <tbody id="clientesBody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- ===================== USUÁRIOS DO CLIENTE SELECIONADO ===================== -->
+      <div class="card" id="usuariosClienteCard" style="display:none;">
+        <div class="card__head">
+          <div>
+            <h2 class="card__title">Usuários — <span id="clienteSelecionadoNome">—</span></h2>
+            <p class="card__desc">Defina quem tem acesso a este grupo e qual o perfil de cada um.</p>
+          </div>
+          <button class="btn btn-primary btn-sm" id="btnNovoUsuarioCliente">+ Novo usuário</button>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Código</th><th>Nome</th><th>Perfil</th><th>Status</th><th>Ações</th></tr></thead>
+            <tbody id="usuariosClienteBody"></tbody>
+          </table>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- ===================== MODAL: cliente ===================== -->
+<div class="modal-overlay" id="modalCliente">
+  <div class="modal">
+    <div class="modal__head">
+      <h2 class="card__title" id="modalClienteTitulo">Novo grupo de clientes</h2>
+      <button class="modal__close" data-close-modal="modalCliente">&times;</button>
+    </div>
+    <input type="hidden" id="clienteId">
+    <div class="form-field">
+      <label for="clienteNome">Nome do grupo/cliente</label>
+      <input type="text" id="clienteNome" placeholder="EX: FESTIVAL JUNINO DE EXEMPLO" style="text-transform:uppercase;" oninput="autoUpper(this)">
+    </div>
+    <div class="form-field">
+      <label for="clienteValidade">Validade da licença</label>
+      <input type="date" id="clienteValidade">
+      <p class="hint">A partir dessa data, os usuários deste grupo (menos o master) não conseguem mais logar.</p>
+    </div>
+    <div class="form-field">
+      <label><input type="checkbox" id="clienteAtivo" style="width:auto;margin-right:8px;" checked>Grupo ativo</label>
+    </div>
+    <button class="btn btn-primary btn-block" id="btnSalvarCliente">Salvar grupo</button>
+  </div>
+</div>
+
+<!-- ===================== MODAL: usuário do cliente ===================== -->
+<div class="modal-overlay" id="modalUsuarioCliente">
+  <div class="modal">
+    <div class="modal__head">
+      <h2 class="card__title" id="modalUsuarioClienteTitulo">Novo usuário</h2>
+      <button class="modal__close" data-close-modal="modalUsuarioCliente">&times;</button>
+    </div>
+    <div class="form-field">
+      <label for="ucCodigo">Código de acesso</label>
+      <input type="text" id="ucCodigo" placeholder="EX: ADM-2028" style="text-transform:uppercase;" oninput="autoUpper(this)">
+      <a href="#" id="btnAbrirTrocaCodigoUC" style="display:none;font-size:12px;margin-top:6px;">Trocar código de acesso deste usuário</a>
+      <div id="trocarCodigoBlockUC" style="display:none;margin-top:10px;padding:12px;border:1px dashed var(--app-border);border-radius:var(--radius-sm);">
+        <label for="ucNovoCodigo" style="font-size:11.5px;">Novo código</label>
+        <input type="text" id="ucNovoCodigo" placeholder="EX: ADM-2029" style="text-transform:uppercase;margin-bottom:8px;" oninput="autoUpper(this)">
+        <button type="button" class="btn btn-secondary btn-sm btn-block" id="btnConfirmarTrocaCodigoUC">Confirmar troca de código</button>
+      </div>
+    </div>
+    <div class="form-field">
+      <label for="ucNome">Nome</label>
+      <input type="text" id="ucNome" placeholder="NOME COMPLETO" style="text-transform:uppercase;" oninput="autoUpper(this)">
+    </div>
+    <div class="form-field">
+      <label for="ucPerfil">Perfil</label>
+      <select id="ucPerfil">
+        <option value="admin" selected>Administrador</option>
+        <option value="presidente">Presidente de mesa</option>
+        <option value="avaliador">Avaliador</option>
+        <option value="consultor">Consultor</option>
+      </select>
+    </div>
+    <div class="form-field">
+      <label><input type="checkbox" id="ucAtivo" style="width:auto;margin-right:8px;" checked>Usuário ativo (pode fazer login)</label>
+    </div>
+    <button class="btn btn-primary btn-block" id="btnSalvarUsuarioCliente">Salvar usuário</button>
+  </div>
+</div>
+
+<script src="assets/js/config.js?v=6"></script>
+<script src="assets/js/mock-data.js?v=6"></script>
+<script src="assets/js/api.js?v=6"></script>
+<script src="assets/js/session.js?v=6"></script>
+<script src="assets/js/toast.js?v=6"></script>
+<script src="assets/js/shell.js?v=6"></script>
+<script>
+  var session = Session.require(['master']);
+  if (session) { Shell.init(session); boot(); }
+
+  var clientesCache = [];
+  var usuariosClienteCache = [];
+  var clienteSelecionadoId = null;
+
+  function autoUpper(el) {
+    var pos = el.selectionStart;
+    el.value = el.value.toUpperCase();
+    if (pos !== null) el.setSelectionRange(pos, pos);
+  }
+
+  function boot() {
+    bindModals();
+    loadClientes();
+  }
+
+  function bindModals() {
+    document.querySelectorAll('[data-close-modal]').forEach(function (btn) {
+      btn.addEventListener('click', function () { document.getElementById(btn.dataset.closeModal).classList.remove('is-open'); });
+    });
+
+    document.getElementById('btnNovoCliente').addEventListener('click', function () {
+      document.getElementById('modalClienteTitulo').textContent = 'Novo grupo de clientes';
+      document.getElementById('clienteId').value = '';
+      document.getElementById('clienteNome').value = '';
+      document.getElementById('clienteValidade').value = '';
+      document.getElementById('clienteAtivo').checked = true;
+      document.getElementById('modalCliente').classList.add('is-open');
+    });
+
+    document.getElementById('btnSalvarCliente').addEventListener('click', function () {
+      var nome = document.getElementById('clienteNome').value.trim();
+      var validade = document.getElementById('clienteValidade').value;
+      if (!nome || !validade) { Toast.error('Preencha nome e validade da licença.'); return; }
+
+      Api.call('master_save_cliente', {
+        id: document.getElementById('clienteId').value || undefined,
+        nome: nome, dataValidadeLicenca: validade, ativo: document.getElementById('clienteAtivo').checked
+      }).then(function (res) {
+        res.success ? Toast.success(res.message) : Toast.error(res.message);
+        document.getElementById('modalCliente').classList.remove('is-open');
+        loadClientes();
+      });
+    });
+
+    document.getElementById('btnNovoUsuarioCliente').addEventListener('click', function () {
+      document.getElementById('modalUsuarioClienteTitulo').textContent = 'Novo usuário';
+      document.getElementById('ucCodigo').value = '';
+      document.getElementById('ucCodigo').disabled = false;
+      document.getElementById('ucNome').value = '';
+      document.getElementById('ucPerfil').value = 'admin';
+      document.getElementById('ucAtivo').checked = true;
+      document.getElementById('btnAbrirTrocaCodigoUC').style.display = 'none';
+      document.getElementById('trocarCodigoBlockUC').style.display = 'none';
+      document.getElementById('modalUsuarioCliente').dataset.editingCodigo = '';
+      document.getElementById('modalUsuarioCliente').classList.add('is-open');
+    });
+
+    document.getElementById('btnSalvarUsuarioCliente').addEventListener('click', function () {
+      var editando = document.getElementById('modalUsuarioCliente').dataset.editingCodigo;
+      var codigo = editando || document.getElementById('ucCodigo').value.trim().toUpperCase();
+      var nome = document.getElementById('ucNome').value.trim();
+      var perfil = document.getElementById('ucPerfil').value;
+      var ativo = document.getElementById('ucAtivo').checked;
+      if (!codigo || !nome) { Toast.error('Preencha código e nome.'); return; }
+
+      Api.call('admin_save_usuario', { codigo: codigo, nome: nome, perfil: perfil, ativo: ativo, eventos: [], cliente_id: clienteSelecionadoId }).then(function (res) {
+        res.success ? Toast.success(res.message) : Toast.error(res.message);
+        document.getElementById('modalUsuarioCliente').classList.remove('is-open');
+        loadUsuariosDoCliente(clienteSelecionadoId);
+      });
+    });
+
+    document.getElementById('btnAbrirTrocaCodigoUC').addEventListener('click', function (e) {
+      e.preventDefault();
+      var bloco = document.getElementById('trocarCodigoBlockUC');
+      bloco.style.display = bloco.style.display === 'none' ? 'block' : 'none';
+    });
+
+    document.getElementById('btnConfirmarTrocaCodigoUC').addEventListener('click', function () {
+      var codigoAntigo = document.getElementById('modalUsuarioCliente').dataset.editingCodigo;
+      var codigoNovo = document.getElementById('ucNovoCodigo').value.trim().toUpperCase();
+      if (!codigoNovo) { Toast.error('Informe o novo código.'); return; }
+
+      Api.call('trocar_codigo_usuario', { codigoAntigo: codigoAntigo, codigoNovo: codigoNovo, usuario: session.nome, perfil: 'MASTER' }).then(function (res) {
+        if (res.success) {
+          Toast.success(res.message);
+          document.getElementById('modalUsuarioCliente').classList.remove('is-open');
+          loadUsuariosDoCliente(clienteSelecionadoId);
+        } else {
+          Toast.error(res.message);
+        }
+      });
+    });
+  }
+
+  /* ---------------- clientes ---------------- */
+
+  function loadClientes() {
+    Api.call('master_list_clientes', {}).then(function (res) {
+      clientesCache = res.clientes || [];
+      var body = document.getElementById('clientesBody');
+      var statusMap = {
+        ATIVA: '<span class="badge badge-active">Ativa</span>',
+        EXPIRADA: '<span class="badge badge-danger">Expirada</span>',
+        DESATIVADO: '<span class="badge badge-neutral">Desativado</span>'
+      };
+      if (!clientesCache.length) { body.innerHTML = '<tr><td colspan="4" class="table-empty">Nenhum grupo de clientes cadastrado.</td></tr>'; return; }
+      body.innerHTML = clientesCache.map(function (c) {
+        var validade = c.dataValidadeLicenca ? new Date(c.dataValidadeLicenca).toLocaleDateString('pt-BR') : '—';
+        return '<tr><td><a href="#" onclick="selecionarCliente(\'' + c.id + '\',\'' + c.nome.replace(/'/g, "") + '\');return false;" style="font-weight:700;color:var(--ink);">' + c.nome + '</a></td>' +
+          '<td>' + validade + '</td><td>' + (statusMap[c.statusLicenca] || c.statusLicenca) + '</td>' +
+          '<td><button class="btn btn-secondary btn-sm" onclick="editarCliente(\'' + c.id + '\')">Editar</button> ' +
+          '<button class="btn btn-ghost btn-sm" onclick="selecionarCliente(\'' + c.id + '\',\'' + c.nome.replace(/'/g, "") + '\')">Gerenciar usuários</button></td></tr>';
+      }).join('');
+    });
+  }
+
+  window.editarCliente = function (id) {
+    var c = clientesCache.find(function (x) { return x.id === id; });
+    if (!c) return;
+    document.getElementById('modalClienteTitulo').textContent = 'Editar grupo de clientes';
+    document.getElementById('clienteId').value = c.id;
+    document.getElementById('clienteNome').value = c.nome;
+    document.getElementById('clienteValidade').value = c.dataValidadeLicenca ? c.dataValidadeLicenca.substring(0, 10) : '';
+    document.getElementById('clienteAtivo').checked = c.ativo !== false;
+    document.getElementById('modalCliente').classList.add('is-open');
+  };
+
+  window.selecionarCliente = function (id, nome) {
+    clienteSelecionadoId = id;
+    document.getElementById('clienteSelecionadoNome').textContent = nome;
+    document.getElementById('usuariosClienteCard').style.display = 'block';
+    loadUsuariosDoCliente(id);
+    document.getElementById('usuariosClienteCard').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
+
+  /* ---------------- usuários do cliente selecionado ---------------- */
+
+  function loadUsuariosDoCliente(clienteId) {
+    Api.call('master_list_usuarios', { cliente_id: clienteId }).then(function (res) {
+      usuariosClienteCache = res.usuarios || [];
+      var body = document.getElementById('usuariosClienteBody');
+      if (!usuariosClienteCache.length) { body.innerHTML = '<tr><td colspan="5" class="table-empty">Nenhum usuário neste grupo ainda.</td></tr>'; return; }
+
+      body.innerHTML = usuariosClienteCache.map(function (u) {
+        var ativo = u.ativo !== false;
+        var statusBadge = ativo ? '<span class="badge badge-active">Ativo</span>' : '<span class="badge badge-danger">Inativo</span>';
+        var toggleBtn = ativo
+          ? '<button class="btn btn-ghost btn-sm" onclick="alternarStatusUsuarioCliente(\'' + u.codigo + '\')">Desativar</button>'
+          : '<button class="btn btn-secondary btn-sm" onclick="alternarStatusUsuarioCliente(\'' + u.codigo + '\')">Ativar</button>';
+        return '<tr' + (ativo ? '' : ' style="opacity:.6;"') + '><td class="mono">' + u.codigo + '</td><td>' + u.nome + '</td><td>' + Session.roleLabel(u.perfil) + '</td><td>' + statusBadge + '</td>' +
+          '<td><button class="btn btn-secondary btn-sm" onclick="editarUsuarioCliente(\'' + u.codigo + '\')">Editar</button> ' + toggleBtn + '</td></tr>';
+      }).join('');
+    });
+  }
+
+  window.editarUsuarioCliente = function (codigo) {
+    var u = usuariosClienteCache.find(function (x) { return x.codigo === codigo; });
+    if (!u) return;
+    document.getElementById('modalUsuarioClienteTitulo').textContent = 'Editar usuário';
+    document.getElementById('ucCodigo').value = u.codigo;
+    document.getElementById('ucCodigo').disabled = true;
+    document.getElementById('ucNome').value = u.nome;
+    document.getElementById('ucPerfil').value = u.perfil;
+    document.getElementById('ucAtivo').checked = u.ativo !== false;
+    document.getElementById('btnAbrirTrocaCodigoUC').style.display = 'block';
+    document.getElementById('trocarCodigoBlockUC').style.display = 'none';
+    document.getElementById('ucNovoCodigo').value = '';
+    document.getElementById('modalUsuarioCliente').dataset.editingCodigo = u.codigo;
+    document.getElementById('modalUsuarioCliente').classList.add('is-open');
+  };
+
+  window.alternarStatusUsuarioCliente = function (codigo) {
+    var u = usuariosClienteCache.find(function (x) { return x.codigo === codigo; });
+    if (!u) return;
+    var novoAtivo = u.ativo === false;
+    Api.call('admin_save_usuario', { codigo: u.codigo, nome: u.nome, perfil: u.perfil, ativo: novoAtivo, eventos: u.eventos || [], cliente_id: clienteSelecionadoId }).then(function (res) {
+      res.success ? Toast.success(novoAtivo ? 'Usuário ativado' : 'Usuário desativado') : Toast.error(res.message);
+      loadUsuariosDoCliente(clienteSelecionadoId);
+    });
+  };
+</script>
+</body>
+</html>
