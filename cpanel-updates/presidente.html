@@ -227,12 +227,12 @@
   </div>
 </div>
 
-<script src="assets/js/config.js?v=13"></script>
-<script src="assets/js/mock-data.js?v=13"></script>
-<script src="assets/js/api.js?v=13"></script>
-<script src="assets/js/session.js?v=13"></script>
-<script src="assets/js/toast.js?v=13"></script>
-<script src="assets/js/shell.js?v=13"></script>
+<script src="assets/js/config.js?v=14"></script>
+<script src="assets/js/mock-data.js?v=14"></script>
+<script src="assets/js/api.js?v=14"></script>
+<script src="assets/js/session.js?v=14"></script>
+<script src="assets/js/toast.js?v=14"></script>
+<script src="assets/js/shell.js?v=14"></script>
 <script>
   var session = Session.require(['presidente', 'admin']);
   if (session) {
@@ -343,6 +343,8 @@
 
   /* ---------------- ANDAMENTO ---------------- */
 
+  var mapaCandidatas = {};
+
   function loadAndamento() {
     Promise.all([
       Api.call('get_active', { event_id: EVT }),
@@ -350,6 +352,7 @@
     ]).then(function (res) {
       renderActiveBlock(res[0]);
       renderFila(res[1].candidatas || []);
+      (res[1].candidatas || []).forEach(function (c) { mapaCandidatas[c.id] = c.nome; });
     });
   }
 
@@ -688,15 +691,33 @@
       body.innerHTML = lista.map(function (c) {
         var acao = '';
         if (c.status === 'CORRIGIDA') {
-          acao = '<button class="btn btn-success btn-sm" onclick="validarCorrecao(\'' + c.id + '\')">Validar</button>';
+          acao = '<button class="btn btn-success btn-sm" onclick="validarCorrecao(\'' + c.id + '\')">Validar</button> ' +
+            '<button class="btn btn-ghost btn-sm" onclick="questionarNovamenteOuCancelar(\'' + c.id + '\',\'' + c.idCandidata + '\',\'' + c.loginAvaliador + '\',\'' + c.idQuesito + '\',\'' + c.nomeAvaliador.replace(/'/g, "") + '\')">Questionar de novo</button> ' +
+            '<button class="btn btn-ghost btn-sm" onclick="cancelarCorrecao(\'' + c.id + '\')">Cancelar</button>';
         } else if (c.status === 'PENDENTE_CORRECAO') {
           acao = '<button class="btn btn-ghost btn-sm" onclick="cancelarCorrecao(\'' + c.id + '\')">Cancelar</button>';
+        } else if (c.status === 'CONFIRMADA') {
+          acao = '<button class="btn btn-ghost btn-sm" onclick="questionarNovamenteOuCancelar(\'' + c.id + '\',\'' + c.idCandidata + '\',\'' + c.loginAvaliador + '\',\'' + c.idQuesito + '\',\'' + c.nomeAvaliador.replace(/'/g, "") + '\')">Questionar de novo</button> ' +
+            '<button class="btn btn-ghost btn-sm" onclick="cancelarCorrecao(\'' + c.id + '\')">Cancelar</button>';
         }
+
         var respostaInfo = c.motivoResposta ? '<div style="font-size:11px;color:var(--ink-faint);margin-top:3px;">"' + c.motivoResposta + '"</div>' : '';
-        return '<tr><td>' + c.idCandidata + '</td><td>' + c.nomeAvaliador + '</td><td>' + nomeQuesito(c.idQuesito) + '</td><td>' + c.notaAntes + '</td><td>' + (c.notaDepois || '—') + '</td><td>' + (statusBadgeMap[c.status] || c.status) + respostaInfo + '</td><td>' + acao + '</td></tr>';
+
+        var comparacao = '<div style="font-size:12px;">' +
+          '<div><strong>' + c.notaAntes + '</strong><span style="color:var(--ink-faint);"> — "' + (c.justificativaAntes || '') + '"</span></div>';
+        if (c.notaDepois !== null && c.notaDepois !== undefined && c.notaDepois !== '') {
+          comparacao += '<div style="margin-top:4px;color:var(--green-ok);">↳ <strong>' + c.notaDepois + '</strong><span style="color:var(--ink-faint);"> — "' + (c.justificativaDepois || '') + '"</span></div>';
+        }
+        comparacao += '</div>';
+
+        return '<tr><td>' + c.idCandidata + '</td><td>' + c.nomeAvaliador + '</td><td>' + nomeQuesito(c.idQuesito) + '</td><td colspan="2">' + comparacao + '</td><td>' + (statusBadgeMap[c.status] || c.status) + respostaInfo + '</td><td>' + acao + '</td></tr>';
       }).join('');
     });
   }
+
+  window.questionarNovamenteOuCancelar = function (idCorrecaoAnterior, candidataId, loginAvaliador, quesitoId, avaliadorNome) {
+    abrirCorrecao(candidataId, loginAvaliador, quesitoId, avaliadorNome, mapaCandidatas[candidataId] || '');
+  };
 
   window.validarCorrecao = function (id) {
     Api.call('validate_correction', { event_id: EVT, id_correcao: id, usuario: session.nome, perfil: 'PRESIDENTE DE MESA' }).then(function (res) {

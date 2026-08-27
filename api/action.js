@@ -520,12 +520,13 @@ async function requestCorrection(body) {
   if (!votoOriginal) return { success: false, message: 'Voto do avaliador não encontrado' };
 
   const id = 'COR-' + Date.now();
-  await supabase.from('correcoes').insert({
+  const { error } = await supabase.from('correcoes').insert({
     id, evento_id: body.event_id, candidata_id: body.id_candidata, login_avaliador: loginAvaliador,
     nome_avaliador: votoOriginal.avaliador_nome, quesito_id: body.id_quesito,
     nota_antes: votoOriginal.nota, justificativa_antes: votoOriginal.justificativa,
     motivo: body.motivo, status: 'PENDENTE_CORRECAO', questionada_por: body.usuario || perfil
   });
+  if (error) return { success: false, message: 'Erro ao solicitar correção: ' + error.message };
 
   await registrarLog(body.event_id, 'REQUEST_CORRECTION', body.usuario, body.perfil, 'Correção solicitada / quesito ' + body.id_quesito);
   return { success: true, message: 'Correção solicitada com sucesso' };
@@ -541,8 +542,9 @@ async function getMyPendingCorrections(body) {
 function mapCorrecao(c) {
   return {
     id: c.id, idCandidata: c.candidata_id, loginAvaliador: c.login_avaliador, nomeAvaliador: c.nome_avaliador,
-    idQuesito: c.quesito_id, notaAntes: c.nota_antes, notaDepois: c.nota_depois, motivo: c.motivo,
-    motivoResposta: c.motivo_resposta, status: c.status
+    idQuesito: c.quesito_id, notaAntes: c.nota_antes, notaDepois: c.nota_depois,
+    justificativaAntes: c.justificativa_antes, justificativaDepois: c.justificativa_depois,
+    motivo: c.motivo, motivoResposta: c.motivo_resposta, status: c.status
   };
 }
 
@@ -551,9 +553,10 @@ async function submitCorrection(body) {
     const { data: corr } = await supabase.from('correcoes').select('*').eq('id', body.id_correcao).maybeSingle();
     if (!corr) return { success: false, message: 'Correção não encontrada' };
 
-    await supabase.from('correcoes').update({
+    const { error } = await supabase.from('correcoes').update({
       status: 'CONFIRMADA', motivo_resposta: 'Avaliador confirmou que a nota original está correta.'
     }).eq('id', body.id_correcao);
+    if (error) return { success: false, message: 'Erro ao confirmar: ' + error.message };
 
     await registrarLog(corr.evento_id, 'CONFIRM_CORRECTION', body.usuario, body.perfil, `Avaliador confirmou nota original do quesito ${corr.quesito_id}`);
     return { success: true, message: 'Confirmado — a nota original permanece.' };
@@ -566,7 +569,7 @@ async function submitCorrection(body) {
     nota_depois: body.nota, justificativa_depois: body.justificativa,
     motivo_resposta: body.motivoResposta || '', status: 'CORRIGIDA'
   }).eq('id', body.id_correcao);
-  if (error) throw error;
+  if (error) return { success: false, message: 'Erro ao enviar correção: ' + error.message };
 
   await registrarLog(corrAntes.evento_id, 'SUBMIT_CORRECTION', body.usuario, body.perfil, `Avaliador corrigiu quesito ${corrAntes.quesito_id} — motivo: ${body.motivoResposta || ''}`);
   return { success: true, message: 'Correção enviada para validação' };
@@ -576,17 +579,21 @@ async function validateCorrection(body) {
   const { data: corr } = await supabase.from('correcoes').select('*').eq('id', body.id_correcao).maybeSingle();
   if (!corr) return { success: false, message: 'Correção não encontrada' };
 
-  await supabase.from('correcoes').update({ status: 'VALIDADA' }).eq('id', body.id_correcao);
-  await supabase.from('votos').update({ nota: corr.nota_depois, justificativa: corr.justificativa_depois })
+  const { error: e1 } = await supabase.from('correcoes').update({ status: 'VALIDADA' }).eq('id', body.id_correcao);
+  if (e1) return { success: false, message: 'Erro ao validar: ' + e1.message };
+
+  const { error: e2 } = await supabase.from('votos').update({ nota: corr.nota_depois, justificativa: corr.justificativa_depois })
     .eq('evento_id', corr.evento_id).eq('candidata_id', corr.candidata_id)
     .ilike('login', corr.login_avaliador).eq('quesito_id', corr.quesito_id);
+  if (e2) return { success: false, message: 'Correção marcada como validada, mas houve erro ao atualizar o voto: ' + e2.message };
 
   await registrarLog(corr.evento_id, 'VALIDATE_CORRECTION', body.usuario, body.perfil, 'Correção validada');
   return { success: true, message: 'Correção validada' };
 }
 
 async function cancelCorrection(body) {
-  await supabase.from('correcoes').delete().eq('id', body.id_correcao);
+  const { error } = await supabase.from('correcoes').delete().eq('id', body.id_correcao);
+  if (error) return { success: false, message: 'Erro ao cancelar: ' + error.message };
   return { success: true, message: 'Correção cancelada' };
 }
 
