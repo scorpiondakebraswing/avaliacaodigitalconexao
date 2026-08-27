@@ -63,6 +63,7 @@ var MockDB = {
               notaMax: 10,
               notaTipo: "fracionada", // 'fracionada' (x,5 de 1 em 1) | 'quebrada' (0,1 em 0,1)
               regraDescarte: "maior_e_menor", // 'sem_descarte' | 'maior' | 'maior_e_menor'
+              justificativaObrigatoria: true,
               minCaracteresJustificativa: 10,
               assinaturaObrigatoria: true
             }

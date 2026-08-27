@@ -382,7 +382,8 @@ async function submitVote(body) {
     const nota = normalizarNota(body.notas[q.id], regras);
     const just = String((body.just || {})[q.id] || '').trim();
     if (nota === null) return { success: false, message: `Nota inválida para o quesito ${q.nome}.` };
-    if (just.length < (regras.minCaracteresJustificativa || 0)) return { success: false, message: `Justificativas devem ter no mínimo ${regras.minCaracteresJustificativa} caracteres.` };
+    const minChars = regras.justificativaObrigatoria !== false ? (regras.minCaracteresJustificativa || 0) : 0;
+    if (just.length < minChars) return { success: false, message: `Justificativas devem ter no mínimo ${minChars} caracteres.` };
     linhas.push({
       evento_id: body.event_id, candidata_id: body.id_candidata, login: body.login, avaliador_nome: body.avaliador,
       perfil: body.perfil, quesito_id: q.id, nota, justificativa: just, assinatura: body.assinatura || ''

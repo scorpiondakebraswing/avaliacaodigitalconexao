@@ -6,7 +6,7 @@
 <title>Painel do Administrador — Avaliação Digital 2.0</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;700;800&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="assets/css/style.css?v=6">
+<link rel="stylesheet" href="assets/css/style.css?v=7">
 </head>
 <body>
 
@@ -266,6 +266,11 @@
     </div>
 
     <div class="form-field">
+      <label><input type="checkbox" id="editJustificativaObrigatoria" style="width:auto;margin-right:8px;" checked onchange="document.getElementById('minCaracteresField').style.display = this.checked ? 'block' : 'none';">Exigir justificativa nos quesitos</label>
+      <p class="hint">Se desativado, o avaliador pode enviar a nota sem escrever nada no campo de justificativa.</p>
+    </div>
+
+    <div class="form-field" id="minCaracteresField">
       <label for="editMinCaracteres">Tamanho mínimo da justificativa (caracteres)</label>
       <input type="number" min="0" id="editMinCaracteres">
     </div>
@@ -294,12 +299,12 @@
   </div>
 </div>
 
-<script src="assets/js/config.js?v=6"></script>
-<script src="assets/js/mock-data.js?v=6"></script>
-<script src="assets/js/api.js?v=6"></script>
-<script src="assets/js/session.js?v=6"></script>
-<script src="assets/js/toast.js?v=6"></script>
-<script src="assets/js/shell.js?v=6"></script>
+<script src="assets/js/config.js?v=7"></script>
+<script src="assets/js/mock-data.js?v=7"></script>
+<script src="assets/js/api.js?v=7"></script>
+<script src="assets/js/session.js?v=7"></script>
+<script src="assets/js/toast.js?v=7"></script>
+<script src="assets/js/shell.js?v=7"></script>
 <script>
   var session = Session.require(['admin']);
   if (session) { Shell.init(session); boot(); }
@@ -443,6 +448,8 @@
       document.getElementById('editNotaTipo').value = r.notaTipo || 'fracionada';
       document.getElementById('editRegraDescarte').value = r.regraDescarte || 'sem_descarte';
       document.getElementById('editMinCaracteres').value = r.minCaracteresJustificativa != null ? r.minCaracteresJustificativa : 10;
+      document.getElementById('editJustificativaObrigatoria').checked = r.justificativaObrigatoria !== false;
+      document.getElementById('minCaracteresField').style.display = (r.justificativaObrigatoria !== false) ? 'block' : 'none';
       document.getElementById('editAssinaturaObrigatoria').checked = r.assinaturaObrigatoria !== false;
 
       var grupoIds = res.grupoIds || [];
@@ -468,7 +475,8 @@
       notaMax: Number(document.getElementById('editNotaMax').value),
       notaTipo: document.getElementById('editNotaTipo').value,
       regraDescarte: document.getElementById('editRegraDescarte').value,
-      minCaracteresJustificativa: Number(document.getElementById('editMinCaracteres').value) || 0,
+      minCaracteresJustificativa: document.getElementById('editJustificativaObrigatoria').checked ? (Number(document.getElementById('editMinCaracteres').value) || 0) : 0,
+      justificativaObrigatoria: document.getElementById('editJustificativaObrigatoria').checked,
       assinaturaObrigatoria: document.getElementById('editAssinaturaObrigatoria').checked
     };
 

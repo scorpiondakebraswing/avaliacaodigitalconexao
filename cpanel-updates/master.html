@@ -6,7 +6,7 @@
 <title>Painel Master — Avaliação Digital 2.0</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;700;800&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="assets/css/style.css?v=6">
+<link rel="stylesheet" href="assets/css/style.css?v=7">
 </head>
 <body>
 
@@ -38,6 +38,7 @@
           <div class="app-user__role" data-user-role>—</div>
         </div>
       </div>
+      <button class="btn btn-ghost btn-sm btn-block" id="btnTrocarMeuCodigo" style="margin-bottom:8px;color:var(--paper);border-color:rgba(255,255,255,0.25);">Trocar meu código de acesso</button>
       <button class="logout-btn" data-logout>Sair do sistema</button>
     </div>
   </aside>
@@ -156,12 +157,28 @@
   </div>
 </div>
 
-<script src="assets/js/config.js?v=6"></script>
-<script src="assets/js/mock-data.js?v=6"></script>
-<script src="assets/js/api.js?v=6"></script>
-<script src="assets/js/session.js?v=6"></script>
-<script src="assets/js/toast.js?v=6"></script>
-<script src="assets/js/shell.js?v=6"></script>
+<!-- ===================== MODAL: trocar o próprio código (master) ===================== -->
+<div class="modal-overlay" id="modalTrocarMeuCodigo">
+  <div class="modal">
+    <div class="modal__head">
+      <h2 class="card__title">Trocar meu código de acesso</h2>
+      <button class="modal__close" data-close-modal="modalTrocarMeuCodigo">&times;</button>
+    </div>
+    <p class="card__desc" style="margin-bottom:16px;">Depois de confirmar, você será desconectado e vai precisar entrar de novo com o código novo.</p>
+    <div class="form-field">
+      <label for="meuNovoCodigo">Novo código de acesso</label>
+      <input type="text" id="meuNovoCodigo" placeholder="EX: MASTER-CONEXAO" style="text-transform:uppercase;" oninput="autoUpper(this)">
+    </div>
+    <button class="btn btn-primary btn-block" id="btnConfirmarMeuNovoCodigo">Confirmar troca</button>
+  </div>
+</div>
+
+<script src="assets/js/config.js?v=7"></script>
+<script src="assets/js/mock-data.js?v=7"></script>
+<script src="assets/js/api.js?v=7"></script>
+<script src="assets/js/session.js?v=7"></script>
+<script src="assets/js/toast.js?v=7"></script>
+<script src="assets/js/shell.js?v=7"></script>
 <script>
   var session = Session.require(['master']);
   if (session) { Shell.init(session); boot(); }
@@ -184,6 +201,24 @@
   function bindModals() {
     document.querySelectorAll('[data-close-modal]').forEach(function (btn) {
       btn.addEventListener('click', function () { document.getElementById(btn.dataset.closeModal).classList.remove('is-open'); });
+    });
+
+    document.getElementById('btnTrocarMeuCodigo').addEventListener('click', function () {
+      document.getElementById('meuNovoCodigo').value = '';
+      document.getElementById('modalTrocarMeuCodigo').classList.add('is-open');
+    });
+
+    document.getElementById('btnConfirmarMeuNovoCodigo').addEventListener('click', function () {
+      var novo = document.getElementById('meuNovoCodigo').value.trim().toUpperCase();
+      if (!novo) { Toast.error('Informe o novo código.'); return; }
+      if (novo === session.codigo) { Toast.error('O novo código precisa ser diferente do atual.'); return; }
+
+      Api.call('trocar_codigo_usuario', { codigoAntigo: session.codigo, codigoNovo: novo, usuario: session.nome, perfil: 'MASTER' }).then(function (res) {
+        if (!res.success) { Toast.error(res.message); return; }
+        Toast.success('Código atualizado! Faça login de novo com o código novo.');
+        Session.clear();
+        setTimeout(function () { window.location.href = 'index.html'; }, 1600);
+      });
     });
 
     document.getElementById('btnNovoCliente').addEventListener('click', function () {
