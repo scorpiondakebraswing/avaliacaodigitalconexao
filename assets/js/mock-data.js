@@ -156,23 +156,17 @@ var MockDB = {
 
   // tipo 'quebrada'   -> passo de 0,1  (ex.: 7,1 / 7,2 / 7,3 ...)
   // tipo 'fracionada' -> passo de 1,0 terminando em ,5 (ex.: 7,5 / 8,5 / 9,5 ...)
+  // tipo 'quebrada'   -> passo de 0,1  (ex.: min=8 → 8,0 / 8,1 / 8,2 ...)
+  // tipo 'fracionada' -> passo de 0,5  (ex.: min=8 → 8,0 / 8,5 / 9,0 / 9,5 / 10,0)
   gerarValoresNota: function (min, max, tipo) {
     min = Number(min); max = Number(max);
     var valores = [];
+    var passoDecimos = (tipo === "quebrada") ? 1 : 5; // em décimos, pra evitar erro de ponto flutuante
+    var inicioDecimos = Math.round(min * 10);
+    var fimDecimos = Math.round(max * 10);
 
-    if (tipo === "quebrada") {
-      var start10 = Math.round(min * 10);
-      var end10 = Math.round(max * 10);
-      for (var v = start10; v <= end10; v++) {
-        valores.push(Math.round(v) / 10);
-      }
-    } else {
-      // fracionada
-      var start = Math.floor(min) + 0.5;
-      if (start < min) start += 1;
-      for (var v2 = start; v2 <= max + 1e-9; v2 += 1) {
-        valores.push(Math.round(v2 * 10) / 10);
-      }
+    for (var v = inicioDecimos; v <= fimDecimos; v += passoDecimos) {
+      valores.push(Math.round(v) / 10);
     }
     return valores;
   },

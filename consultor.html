@@ -139,12 +139,12 @@
   </div>
 </div>
 
-<script src="assets/js/config.js?v=10"></script>
-<script src="assets/js/mock-data.js?v=10"></script>
-<script src="assets/js/api.js?v=10"></script>
-<script src="assets/js/session.js?v=10"></script>
-<script src="assets/js/toast.js?v=10"></script>
-<script src="assets/js/shell.js?v=10"></script>
+<script src="assets/js/config.js?v=11"></script>
+<script src="assets/js/mock-data.js?v=11"></script>
+<script src="assets/js/api.js?v=11"></script>
+<script src="assets/js/session.js?v=11"></script>
+<script src="assets/js/toast.js?v=11"></script>
+<script src="assets/js/shell.js?v=11"></script>
 <script>
   var session = Session.require(['consultor', 'admin']);
   if (session) { Shell.init(session); boot(); }
@@ -256,9 +256,73 @@
         var rows = c.votos.map(function (v) {
           return '<tr><td>' + v.avaliadorNome + '</td><td>' + v.quesitoId.toUpperCase() + '</td><td>' + Number(v.nota).toFixed(1) + '</td><td style="font-size:12.5px;">' + v.justificativa + '</td></tr>';
         }).join('');
-        return '<h3 style="font-size:15px;margin:18px 0 8px;">' + c.nome + '</h3><div class="table-wrap"><table><thead><tr><th>Avaliador</th><th>Quesito</th><th>Nota</th><th>Justificativa</th></tr></thead><tbody>' + rows + '</tbody></table></div>';
+        return '<div style="display:flex;align-items:center;justify-content:space-between;margin:18px 0 8px;">' +
+          '<h3 style="font-size:15px;margin:0;">' + c.nome + '</h3>' +
+          '<button class="btn btn-secondary btn-sm" onclick="gerarRelatorioCandidata(\'' + c.id + '\')">Gerar relatório (PDF)</button>' +
+          '</div>' +
+          '<div class="table-wrap"><table><thead><tr><th>Avaliador</th><th>Quesito</th><th>Nota</th><th>Justificativa</th></tr></thead><tbody>' + rows + '</tbody></table></div>';
       }).join('');
     });
+  }
+
+  window.gerarRelatorioCandidata = function (candidataId) {
+    Api.call('get_received_notes', { event_id: EVT }).then(function (res) {
+      var c = (res.candidatas || []).find(function (x) { return x.id === candidataId; });
+      if (!c) { Toast.error('Grupo não encontrado.'); return; }
+      Api.call('get_status_concurso', { event_id: EVT }).then(function (status) {
+        abrirJanelaRelatorio(c, status.nomeConcurso || 'Avaliação Digital');
+      });
+    });
+  };
+
+  function abrirJanelaRelatorio(c, nomeEvento) {
+    var porQuesito = {};
+    c.votos.forEach(function (v) {
+      porQuesito[v.quesitoId] = porQuesito[v.quesitoId] || [];
+      porQuesito[v.quesitoId].push(v);
+    });
+
+    var blocos = Object.keys(porQuesito).sort().map(function (qid) {
+      var linhas = porQuesito[qid].map(function (v) {
+        var assinaturaHtml = v.assinatura
+          ? '<img src="' + v.assinatura + '" style="height:60px;border:1px solid #ddd;border-radius:4px;">'
+          : '<span style="color:#999;">— sem assinatura —</span>';
+        return '<tr>' +
+          '<td style="padding:8px;border:1px solid #ddd;">' + v.avaliadorNome + '</td>' +
+          '<td style="padding:8px;border:1px solid #ddd;text-align:center;font-weight:700;">' + Number(v.nota).toFixed(1) + '</td>' +
+          '<td style="padding:8px;border:1px solid #ddd;font-size:12.5px;">' + (v.justificativa || '—') + '</td>' +
+          '<td style="padding:8px;border:1px solid #ddd;text-align:center;">' + assinaturaHtml + '</td>' +
+          '</tr>';
+      }).join('');
+      return '<h3 style="font-size:14px;margin:22px 0 8px;text-transform:uppercase;">Quesito: ' + qid.toUpperCase() + '</h3>' +
+        '<table style="width:100%;border-collapse:collapse;font-family:Arial,sans-serif;font-size:13px;">' +
+        '<thead><tr style="background:#f2f2f2;">' +
+        '<th style="padding:8px;border:1px solid #ddd;text-align:left;">Avaliador</th>' +
+        '<th style="padding:8px;border:1px solid #ddd;">Nota</th>' +
+        '<th style="padding:8px;border:1px solid #ddd;text-align:left;">Justificativa</th>' +
+        '<th style="padding:8px;border:1px solid #ddd;">Assinatura</th>' +
+        '</tr></thead><tbody>' + linhas + '</tbody></table>';
+    }).join('');
+
+    var html = '<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8">' +
+      '<title>Relatório — ' + c.nome + '</title>' +
+      '<style>' +
+      'body{font-family:Arial,Helvetica,sans-serif;color:#222;padding:32px;max-width:900px;margin:0 auto;}' +
+      '.print-bar{margin-bottom:24px;} .print-bar button{padding:10px 18px;font-size:14px;font-weight:700;cursor:pointer;border-radius:6px;border:none;background:#e3a53d;color:#20120a;}' +
+      'h1{font-size:20px;margin-bottom:2px;} .sub{color:#666;font-size:13px;margin-bottom:20px;}' +
+      '@media print{ .print-bar{display:none;} }' +
+      '</style></head><body>' +
+      '<div class="print-bar"><button onclick="window.print()">Imprimir / Salvar como PDF</button></div>' +
+      '<h1>' + nomeEvento + '</h1>' +
+      '<p class="sub">Relatório de avaliação — <strong>' + c.nome + '</strong> (' + (c.cidade || '') + '/' + c.estado + ') — gerado em ' + new Date().toLocaleString('pt-BR') + '</p>' +
+      blocos +
+      '</body></html>';
+
+    var win = window.open('', '_blank');
+    if (!win) { Toast.error('Seu navegador bloqueou a janela do relatório. Permita pop-ups para este site.'); return; }
+    win.document.open();
+    win.document.write(html);
+    win.document.close();
   }
 
   function loadValidadas() {

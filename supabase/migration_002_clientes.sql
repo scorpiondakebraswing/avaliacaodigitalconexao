@@ -24,7 +24,9 @@ on conflict (id) do nothing;
 
 -- ---------- USUARIOS: cliente_id + perfil "master" ----------
 alter table usuarios add column if not exists cliente_id text references clientes(id);
-update usuarios set cliente_id = 'cliente-conexao' where cliente_id is null;
+-- (nunca preenche cliente_id de quem já é master — evita corromper o
+-- dado se este script for rodado mais de uma vez)
+update usuarios set cliente_id = 'cliente-conexao' where cliente_id is null and perfil <> 'master';
 
 alter table usuarios drop constraint if exists usuarios_perfil_check;
 alter table usuarios add constraint usuarios_perfil_check
