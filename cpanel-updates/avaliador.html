@@ -101,12 +101,12 @@
   </div>
 </div>
 
-<script src="assets/js/config.js?v=15"></script>
-<script src="assets/js/mock-data.js?v=15"></script>
-<script src="assets/js/api.js?v=15"></script>
-<script src="assets/js/session.js?v=15"></script>
-<script src="assets/js/toast.js?v=15"></script>
-<script src="assets/js/shell.js?v=15"></script>
+<script src="assets/js/config.js?v=17"></script>
+<script src="assets/js/mock-data.js?v=17"></script>
+<script src="assets/js/api.js?v=17"></script>
+<script src="assets/js/session.js?v=17"></script>
+<script src="assets/js/toast.js?v=17"></script>
+<script src="assets/js/shell.js?v=17"></script>
 <script>
   var session = Session.require(['avaliador']);
   if (session) {
@@ -361,9 +361,9 @@
   function loadPendingCorrections() {
     Api.call('get_quesitos', { event_id: EVT }).then(function (qres) {
       (qres.quesitos || []).forEach(function (q) { mapaQuesitosCorrecao[q.id] = q.nome; });
-    });
 
-    Api.call('get_my_pending_corrections', { event_id: EVT, login: session.codigo }).then(function (res) {
+      return Api.call('get_my_pending_corrections', { event_id: EVT, login: session.codigo });
+    }).then(function (res) {
       var host = document.getElementById('pendingCorrections');
       var lista = res.correcoes || [];
 
@@ -426,7 +426,7 @@
   window.confirmarNotaCorreta = function (id) {
     Api.call('submit_correction', { event_id: EVT, id_correcao: id, tipo: 'confirmar', usuario: session.nome, perfil: 'AVALIADOR' }).then(function (res) {
       res.success ? Toast.success(res.message) : Toast.error(res.message);
-      assinaturaPendentesAnterior = ''; // força redesenhar após a resposta
+      assinaturaPendentesAnterior = null; // força redesenhar após a resposta
       loadPendingCorrections();
     });
   };
@@ -449,7 +449,7 @@
       nota: nota, justificativa: just, usuario: session.nome, perfil: 'AVALIADOR'
     }).then(function (res) {
       res.success ? Toast.success(res.message) : Toast.error(res.message);
-      assinaturaPendentesAnterior = ''; // força redesenhar após a resposta
+      assinaturaPendentesAnterior = null; // força redesenhar após a resposta
       loadPendingCorrections();
     });
   };

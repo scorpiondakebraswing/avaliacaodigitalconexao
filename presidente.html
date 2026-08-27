@@ -227,12 +227,12 @@
   </div>
 </div>
 
-<script src="assets/js/config.js?v=15"></script>
-<script src="assets/js/mock-data.js?v=15"></script>
-<script src="assets/js/api.js?v=15"></script>
-<script src="assets/js/session.js?v=15"></script>
-<script src="assets/js/toast.js?v=15"></script>
-<script src="assets/js/shell.js?v=15"></script>
+<script src="assets/js/config.js?v=17"></script>
+<script src="assets/js/mock-data.js?v=17"></script>
+<script src="assets/js/api.js?v=17"></script>
+<script src="assets/js/session.js?v=17"></script>
+<script src="assets/js/toast.js?v=17"></script>
+<script src="assets/js/shell.js?v=17"></script>
 <script>
   var session = Session.require(['presidente', 'admin']);
   if (session) {
@@ -567,9 +567,14 @@
           acoesArr.push('<span style="color:var(--green-ok);font-weight:600;font-size:11.5px;">✓ Validado</span>');
         }
 
-        var comparacao = '';
+        var comparacao = '<div style="font-size:11px;margin-top:5px;line-height:1.5;color:var(--ink-faint);">Você questionou: "' + (corr.motivo || '') + '"</div>';
+
+        if (corr.motivoResposta) {
+          comparacao += '<div style="font-size:11px;margin-top:2px;line-height:1.5;color:var(--ink-faint);">Resposta do avaliador: "' + corr.motivoResposta + '"</div>';
+        }
+
         if (corr.notaDepois !== undefined && corr.notaDepois !== null && corr.notaDepois !== '') {
-          comparacao = '<div style="font-size:11px;margin-top:5px;line-height:1.5;">' +
+          comparacao += '<div style="font-size:11px;margin-top:5px;line-height:1.5;">' +
             '<span style="color:var(--coral);">antes: <strong>' + corr.notaAntes + '</strong> — "' + (corr.justificativaAntes || '') + '"</span><br>' +
             '<span style="color:var(--green-ok);">depois: <strong>' + corr.notaDepois + '</strong> — "' + (corr.justificativaDepois || '') + '"</span>' +
             '</div>';
@@ -734,7 +739,10 @@
             '<button class="btn btn-ghost btn-sm" onclick="cancelarCorrecao(\'' + c.id + '\')">Cancelar</button>';
         }
 
-        var respostaInfo = c.motivoResposta ? '<div style="font-size:11px;color:var(--ink-faint);margin-top:3px;">"' + c.motivoResposta + '"</div>' : '';
+        var respostaInfo = '<div style="font-size:11px;color:var(--ink-faint);margin-top:3px;">Você questionou: "' + (c.motivo || '') + '"</div>';
+        if (c.motivoResposta) {
+          respostaInfo += '<div style="font-size:11px;color:var(--ink-faint);margin-top:2px;">Resposta do avaliador: "' + c.motivoResposta + '"</div>';
+        }
 
         var comparacao = '<div style="font-size:12px;">' +
           '<div><strong>' + c.notaAntes + '</strong><span style="color:var(--ink-faint);"> — "' + (c.justificativaAntes || '') + '"</span></div>';
