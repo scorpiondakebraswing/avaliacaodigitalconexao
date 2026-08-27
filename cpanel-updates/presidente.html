@@ -227,12 +227,12 @@
   </div>
 </div>
 
-<script src="assets/js/config.js?v=12"></script>
-<script src="assets/js/mock-data.js?v=12"></script>
-<script src="assets/js/api.js?v=12"></script>
-<script src="assets/js/session.js?v=12"></script>
-<script src="assets/js/toast.js?v=12"></script>
-<script src="assets/js/shell.js?v=12"></script>
+<script src="assets/js/config.js?v=13"></script>
+<script src="assets/js/mock-data.js?v=13"></script>
+<script src="assets/js/api.js?v=13"></script>
+<script src="assets/js/session.js?v=13"></script>
+<script src="assets/js/toast.js?v=13"></script>
+<script src="assets/js/shell.js?v=13"></script>
 <script>
   var session = Session.require(['presidente', 'admin']);
   if (session) {
@@ -260,14 +260,29 @@
     });
   }
 
+  var mapaQuesitos = {};
+
+  function carregarMapaQuesitos() {
+    return Api.call('get_quesitos', { event_id: EVT }).then(function (res) {
+      mapaQuesitos = {};
+      (res.quesitos || []).forEach(function (q) { mapaQuesitos[q.id] = q.nome; });
+    });
+  }
+
+  function nomeQuesito(id) {
+    return mapaQuesitos[id] || id.toUpperCase();
+  }
+
   function refreshAll() {
-    loadStatus();
-    loadAndamento();
-    loadFinalizadas();
-    loadRecebidas();
-    loadValidadas();
-    loadRanking();
-    loadCorrecoes();
+    carregarMapaQuesitos().then(function () {
+      loadStatus();
+      loadAndamento();
+      loadFinalizadas();
+      loadRecebidas();
+      loadValidadas();
+      loadRanking();
+      loadCorrecoes();
+    });
   }
 
   function bindTabs() {
@@ -346,17 +361,23 @@
       return;
     }
 
+    var interrompido = activeRes.statusSistema === 'INTERROMPIDO';
+
     Api.call('get_monitor', { event_id: EVT, id_candidata: c.id }).then(function (mon) {
       var lista = (mon.avaliadores || []).map(function (a) {
         return '<span class="badge ' + (a.votou ? 'badge-active' : 'badge-neutral') + '"><span class="badge-dot"></span>' + a.nome + (a.votou ? ' · votou' : ' · aguardando') + '</span>';
       }).join(' ');
 
-      block.innerHTML =
+      var alerta = interrompido
+        ? '<div class="blink-alert-banner">⏸ AVALIAÇÃO INTERROMPIDA — os avaliadores estão aguardando você retomar</div>'
+        : '';
+
+      block.innerHTML = alerta +
         '<h3 class="font-display" style="font-size:18px;margin-bottom:6px;">' + c.nome + ' <span style="color:var(--ink-faint);font-weight:500;font-size:14px;">— ' + c.estado + '</span></h3>' +
         '<div style="display:flex;flex-wrap:wrap;gap:8px;margin:10px 0 16px;">' + lista + '</div>' +
         '<div style="display:flex;flex-wrap:wrap;gap:8px;">' +
-        '<button class="btn btn-secondary btn-sm" onclick="actInterromper()">Interromper</button>' +
-        '<button class="btn btn-secondary btn-sm" onclick="actRetomar()">Retomar</button>' +
+        '<button class="btn btn-secondary btn-sm" onclick="actInterromper()" ' + (interrompido ? 'disabled' : '') + '>Interromper</button>' +
+        '<button class="btn ' + (interrompido ? 'btn-primary blink-alert-btn' : 'btn-secondary') + ' btn-sm" onclick="actRetomar()">' + (interrompido ? '▶ Retomar avaliação' : 'Retomar') + '</button>' +
         '<button class="btn btn-primary btn-sm" onclick="actEncerrar(\'' + c.id + '\')">Encerrar avaliação</button>' +
         '</div>';
     });
@@ -497,15 +518,37 @@
   /* ---------------- NOTAS RECEBIDAS ---------------- */
 
   function loadRecebidas() {
-    Api.call('get_received_notes', { event_id: EVT }).then(function (res) {
+    Promise.all([
+      Api.call('get_received_notes', { event_id: EVT }),
+      Api.call('get_all_corrections', { event_id: EVT })
+    ]).then(function (resultados) {
+      var res = resultados[0];
+      var correcoes = resultados[1].correcoes || [];
       var container = document.getElementById('recebidasContainer');
       var candidatas = (res.candidatas || []).filter(function (c) { return c.votos.length; });
 
       if (!candidatas.length) { container.innerHTML = '<div class="empty-state"><h3>Ainda sem votos</h3><p>Assim que os avaliadores votarem, as notas aparecem aqui.</p></div>'; return; }
 
+      function acharCorrecao(candidataId, login, quesitoId) {
+        return correcoes.find(function (c) {
+          return c.idCandidata === candidataId && String(c.loginAvaliador).toUpperCase() === String(login).toUpperCase() && c.idQuesito === quesitoId;
+        });
+      }
+
+      var statusLabel = {
+        PENDENTE_CORRECAO: '<span class="badge badge-warn">Questionado — aguardando resposta</span>',
+        CORRIGIDA: '<span class="badge badge-info">Corrigido — aguardando validação</span>',
+        CONFIRMADA: '<span class="badge badge-neutral">Questionado — avaliador confirmou nota</span>',
+        VALIDADA: '<span class="badge badge-active">Corrigido e validado</span>'
+      };
+
       container.innerHTML = candidatas.map(function (c) {
         var rows = c.votos.map(function (v) {
-          return '<tr><td>' + v.avaliadorNome + '</td><td>' + v.quesitoId.toUpperCase() + '</td><td>' + Number(v.nota).toFixed(1) + '</td><td style="max-width:260px;font-size:12.5px;">' + v.justificativa + '</td>' +
+          var corr = acharCorrecao(c.id, v.avaliador, v.quesitoId);
+          var destaque = corr ? ' style="background:#fff8ea;"' : '';
+          var badge = corr ? '<div style="margin-top:4px;">' + (statusLabel[corr.status] || corr.status) + '</div>' : '';
+          var motivoLinha = corr ? '<div style="font-size:11.5px;color:var(--ink-faint);margin-top:3px;">Motivo do questionamento: "' + corr.motivo + '"' + (corr.motivoResposta ? ' · Resposta do avaliador: "' + corr.motivoResposta + '"' : '') + '</div>' : '';
+          return '<tr' + destaque + '><td>' + v.avaliadorNome + '</td><td>' + nomeQuesito(v.quesitoId) + '</td><td>' + Number(v.nota).toFixed(1) + '</td><td style="max-width:260px;font-size:12.5px;">' + v.justificativa + badge + motivoLinha + '</td>' +
             '<td><button class="btn btn-ghost btn-sm" onclick="abrirCorrecao(\'' + c.id + '\',\'' + v.avaliador + '\',\'' + v.quesitoId + '\',\'' + v.avaliadorNome.replace(/'/g, "") + '\',\'' + c.nome.replace(/'/g, "") + '\')">Questionar</button></td></tr>';
         }).join('');
         return '<div style="display:flex;align-items:center;justify-content:space-between;margin:18px 0 8px;">' +
@@ -546,7 +589,7 @@
           '<td style="padding:8px;border:1px solid #ddd;text-align:center;">' + assinaturaHtml + '</td>' +
           '</tr>';
       }).join('');
-      return '<h3 style="font-size:14px;margin:22px 0 8px;text-transform:uppercase;">Quesito: ' + qid.toUpperCase() + '</h3>' +
+      return '<h3 style="font-size:14px;margin:22px 0 8px;text-transform:uppercase;">Quesito: ' + nomeQuesito(qid) + '</h3>' +
         '<table style="width:100%;border-collapse:collapse;font-family:Arial,sans-serif;font-size:13px;">' +
         '<thead><tr style="background:#f2f2f2;">' +
         '<th style="padding:8px;border:1px solid #ddd;text-align:left;">Avaliador</th>' +
@@ -581,7 +624,7 @@
     document.getElementById('corCandidataId').value = candidataId;
     document.getElementById('corAvaliadorLogin').value = login;
     document.getElementById('corQuesitoId').value = quesitoId;
-    document.getElementById('corResumo').textContent = avaliadorNome + ' · ' + candidataNome + ' · quesito ' + quesitoId.toUpperCase();
+    document.getElementById('corResumo').textContent = avaliadorNome + ' · ' + candidataNome + ' · quesito ' + nomeQuesito(quesitoId);
     document.getElementById('modalCorrecao').classList.add('is-open');
   };
 
@@ -636,8 +679,9 @@
       if (!lista.length) { body.innerHTML = '<tr><td colspan="7" class="table-empty">Nenhuma correção solicitada.</td></tr>'; return; }
 
       var statusBadgeMap = {
-        PENDENTE_CORRECAO: '<span class="badge badge-warn">Pendente</span>',
-        CORRIGIDA: '<span class="badge badge-info">Corrigida</span>',
+        PENDENTE_CORRECAO: '<span class="badge badge-warn">Aguardando resposta</span>',
+        CORRIGIDA: '<span class="badge badge-info">Corrigida — aguardando validação</span>',
+        CONFIRMADA: '<span class="badge badge-neutral">Avaliador confirmou nota</span>',
         VALIDADA: '<span class="badge badge-active">Validada</span>'
       };
 
@@ -648,7 +692,8 @@
         } else if (c.status === 'PENDENTE_CORRECAO') {
           acao = '<button class="btn btn-ghost btn-sm" onclick="cancelarCorrecao(\'' + c.id + '\')">Cancelar</button>';
         }
-        return '<tr><td>' + c.idCandidata + '</td><td>' + c.nomeAvaliador + '</td><td>' + c.idQuesito.toUpperCase() + '</td><td>' + c.notaAntes + '</td><td>' + (c.notaDepois || '—') + '</td><td>' + (statusBadgeMap[c.status] || c.status) + '</td><td>' + acao + '</td></tr>';
+        var respostaInfo = c.motivoResposta ? '<div style="font-size:11px;color:var(--ink-faint);margin-top:3px;">"' + c.motivoResposta + '"</div>' : '';
+        return '<tr><td>' + c.idCandidata + '</td><td>' + c.nomeAvaliador + '</td><td>' + nomeQuesito(c.idQuesito) + '</td><td>' + c.notaAntes + '</td><td>' + (c.notaDepois || '—') + '</td><td>' + (statusBadgeMap[c.status] || c.status) + respostaInfo + '</td><td>' + acao + '</td></tr>';
       }).join('');
     });
   }

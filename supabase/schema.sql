@@ -111,7 +111,8 @@ create table if not exists correcoes (
   nota_depois numeric,
   justificativa_depois text,
   motivo text,
-  status text not null default 'PENDENTE_CORRECAO' check (status in ('PENDENTE_CORRECAO','CORRIGIDA','VALIDADA')),
+  motivo_resposta text,
+  status text not null default 'PENDENTE_CORRECAO' check (status in ('PENDENTE_CORRECAO','CORRIGIDA','CONFIRMADA','VALIDADA')),
   questionada_por text,
   criado_em timestamptz not null default now()
 );

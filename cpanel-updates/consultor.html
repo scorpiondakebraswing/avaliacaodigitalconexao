@@ -139,12 +139,12 @@
   </div>
 </div>
 
-<script src="assets/js/config.js?v=12"></script>
-<script src="assets/js/mock-data.js?v=12"></script>
-<script src="assets/js/api.js?v=12"></script>
-<script src="assets/js/session.js?v=12"></script>
-<script src="assets/js/toast.js?v=12"></script>
-<script src="assets/js/shell.js?v=12"></script>
+<script src="assets/js/config.js?v=13"></script>
+<script src="assets/js/mock-data.js?v=13"></script>
+<script src="assets/js/api.js?v=13"></script>
+<script src="assets/js/session.js?v=13"></script>
+<script src="assets/js/toast.js?v=13"></script>
+<script src="assets/js/shell.js?v=13"></script>
 <script>
   var session = Session.require(['consultor', 'admin']);
   if (session) { Shell.init(session); boot(); }
@@ -217,8 +217,23 @@
     loadEventPicker();
   }
 
+  var mapaQuesitos = {};
+
+  function carregarMapaQuesitos() {
+    return Api.call('get_quesitos', { event_id: EVT }).then(function (res) {
+      mapaQuesitos = {};
+      (res.quesitos || []).forEach(function (q) { mapaQuesitos[q.id] = q.nome; });
+    });
+  }
+
+  function nomeQuesito(id) {
+    return mapaQuesitos[id] || id.toUpperCase();
+  }
+
   function refreshAll() {
-    loadStatus(); loadFila(); loadRecebidas(); loadValidadas(); loadRanking(); loadLogs();
+    carregarMapaQuesitos().then(function () {
+      loadStatus(); loadFila(); loadRecebidas(); loadValidadas(); loadRanking(); loadLogs();
+    });
   }
 
   function loadStatus() {
@@ -254,7 +269,7 @@
       if (!candidatas.length) { container.innerHTML = '<div class="empty-state"><h3>Ainda sem votos</h3></div>'; return; }
       container.innerHTML = candidatas.map(function (c) {
         var rows = c.votos.map(function (v) {
-          return '<tr><td>' + v.avaliadorNome + '</td><td>' + v.quesitoId.toUpperCase() + '</td><td>' + Number(v.nota).toFixed(1) + '</td><td style="font-size:12.5px;">' + v.justificativa + '</td></tr>';
+          return '<tr><td>' + v.avaliadorNome + '</td><td>' + nomeQuesito(v.quesitoId) + '</td><td>' + Number(v.nota).toFixed(1) + '</td><td style="font-size:12.5px;">' + v.justificativa + '</td></tr>';
         }).join('');
         return '<div style="display:flex;align-items:center;justify-content:space-between;margin:18px 0 8px;">' +
           '<h3 style="font-size:15px;margin:0;">' + c.nome + '</h3>' +
@@ -294,7 +309,7 @@
           '<td style="padding:8px;border:1px solid #ddd;text-align:center;">' + assinaturaHtml + '</td>' +
           '</tr>';
       }).join('');
-      return '<h3 style="font-size:14px;margin:22px 0 8px;text-transform:uppercase;">Quesito: ' + qid.toUpperCase() + '</h3>' +
+      return '<h3 style="font-size:14px;margin:22px 0 8px;text-transform:uppercase;">Quesito: ' + nomeQuesito(qid) + '</h3>' +
         '<table style="width:100%;border-collapse:collapse;font-family:Arial,sans-serif;font-size:13px;">' +
         '<thead><tr style="background:#f2f2f2;">' +
         '<th style="padding:8px;border:1px solid #ddd;text-align:left;">Avaliador</th>' +

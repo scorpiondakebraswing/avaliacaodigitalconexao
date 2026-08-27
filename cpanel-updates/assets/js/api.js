@@ -301,9 +301,20 @@ var Api = {
       case "submit_correction": {
         var corr = evento.correcoes.find(function (c) { return c.id === p.id_correcao; });
         if (!corr) return { success: false, message: "Correção não encontrada" };
+
+        if (p.tipo === "confirmar") {
+          corr.status = "CONFIRMADA";
+          corr.motivoResposta = "Avaliador confirmou que a nota original está correta.";
+          MockDB.log(evento, "CONFIRM_CORRECTION", p.usuario, p.perfil, "Avaliador confirmou nota original do quesito " + corr.idQuesito);
+          MockDB.save(db);
+          return { success: true, message: "Confirmado — a nota original permanece." };
+        }
+
         corr.notaDepois = p.nota;
         corr.justificativaDepois = p.justificativa;
+        corr.motivoResposta = p.motivoResposta || "";
         corr.status = "CORRIGIDA";
+        MockDB.log(evento, "SUBMIT_CORRECTION", p.usuario, p.perfil, "Avaliador corrigiu quesito " + corr.idQuesito + " — motivo: " + (p.motivoResposta || ""));
         MockDB.save(db);
         return { success: true, message: "Correção enviada para validação" };
       }

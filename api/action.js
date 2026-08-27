@@ -541,15 +541,34 @@ async function getMyPendingCorrections(body) {
 function mapCorrecao(c) {
   return {
     id: c.id, idCandidata: c.candidata_id, loginAvaliador: c.login_avaliador, nomeAvaliador: c.nome_avaliador,
-    idQuesito: c.quesito_id, notaAntes: c.nota_antes, notaDepois: c.nota_depois, motivo: c.motivo, status: c.status
+    idQuesito: c.quesito_id, notaAntes: c.nota_antes, notaDepois: c.nota_depois, motivo: c.motivo,
+    motivoResposta: c.motivo_resposta, status: c.status
   };
 }
 
 async function submitCorrection(body) {
+  if (body.tipo === 'confirmar') {
+    const { data: corr } = await supabase.from('correcoes').select('*').eq('id', body.id_correcao).maybeSingle();
+    if (!corr) return { success: false, message: 'Correção não encontrada' };
+
+    await supabase.from('correcoes').update({
+      status: 'CONFIRMADA', motivo_resposta: 'Avaliador confirmou que a nota original está correta.'
+    }).eq('id', body.id_correcao);
+
+    await registrarLog(corr.evento_id, 'CONFIRM_CORRECTION', body.usuario, body.perfil, `Avaliador confirmou nota original do quesito ${corr.quesito_id}`);
+    return { success: true, message: 'Confirmado — a nota original permanece.' };
+  }
+
+  const { data: corrAntes } = await supabase.from('correcoes').select('*').eq('id', body.id_correcao).maybeSingle();
+  if (!corrAntes) return { success: false, message: 'Correção não encontrada' };
+
   const { error } = await supabase.from('correcoes').update({
-    nota_depois: body.nota, justificativa_depois: body.justificativa, status: 'CORRIGIDA'
+    nota_depois: body.nota, justificativa_depois: body.justificativa,
+    motivo_resposta: body.motivoResposta || '', status: 'CORRIGIDA'
   }).eq('id', body.id_correcao);
   if (error) throw error;
+
+  await registrarLog(corrAntes.evento_id, 'SUBMIT_CORRECTION', body.usuario, body.perfil, `Avaliador corrigiu quesito ${corrAntes.quesito_id} — motivo: ${body.motivoResposta || ''}`);
   return { success: true, message: 'Correção enviada para validação' };
 }
 

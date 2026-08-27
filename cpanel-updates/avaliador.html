@@ -75,6 +75,11 @@
               <span class="badge badge-active" id="statusPill"><span class="badge-dot"></span>Em avaliação</span>
             </div>
 
+            <div class="empty-state" id="aguardandoPresidenteState" style="display:none;">
+              <h3 id="aguardandoTitulo">Aguardando o presidente de mesa</h3>
+              <p id="aguardandoTexto">—</p>
+            </div>
+
             <form id="voteForm">
               <div id="quesitosContainer"></div>
 
@@ -96,12 +101,12 @@
   </div>
 </div>
 
-<script src="assets/js/config.js?v=12"></script>
-<script src="assets/js/mock-data.js?v=12"></script>
-<script src="assets/js/api.js?v=12"></script>
-<script src="assets/js/session.js?v=12"></script>
-<script src="assets/js/toast.js?v=12"></script>
-<script src="assets/js/shell.js?v=12"></script>
+<script src="assets/js/config.js?v=13"></script>
+<script src="assets/js/mock-data.js?v=13"></script>
+<script src="assets/js/api.js?v=13"></script>
+<script src="assets/js/session.js?v=13"></script>
+<script src="assets/js/toast.js?v=13"></script>
+<script src="assets/js/shell.js?v=13"></script>
 <script>
   var session = Session.require(['avaliador']);
   if (session) {
@@ -113,6 +118,7 @@
   var quesitosAtuais = [];
   var candidataAtual = null;
   var candidataAtivaId = null;
+  var jaEnviouVoto = false;
   var notasSelecionadas = {};
   var regrasAtuais = { maxCaracteresJustificativa: 500, justificativaObrigatoria: true, assinaturaObrigatoria: true };
   var VALORES_NOTA = [8, 8.5, 9, 9.5, 10]; // substituído por Api.call('get_evento_regras')
@@ -177,33 +183,65 @@
 
       document.getElementById('candidataNome').textContent = res.candidata.nome;
       document.getElementById('candidataEstado').textContent = res.candidata.estado;
-
-      var pill = document.getElementById('statusPill');
-      if (res.statusSistema === 'INTERROMPIDO') {
-        pill.className = 'badge badge-warn';
-        pill.innerHTML = '<span class="badge-dot"></span>Avaliação interrompida';
-      } else {
-        pill.className = 'badge badge-active';
-        pill.innerHTML = '<span class="badge-dot"></span>Em avaliação';
-      }
-
       candidataAtual = res.candidata;
 
-      // Só reconstrói o formulário quando a candidata ativa MUDA de fato.
-      // Enquanto o mesmo grupo continua se apresentando, o avaliador pode
-      // ir anotando à vontade — o polling (a cada 5s) não deve apagar o
-      // que ele já marcou ou escreveu.
-      if (candidataAtivaId === res.candidata.id) return;
-      candidataAtivaId = res.candidata.id;
-      notasSelecionadas = {};
-      clearSignature();
+      var candidataMudou = candidataAtivaId !== res.candidata.id;
 
-      Api.call('get_quesitos', { event_id: EVT, login: session.codigo }).then(function (qres) {
-        quesitosAtuais = qres.quesitos || [];
-        renderQuesitos();
-        prefillMyVote();
-      });
+      if (candidataMudou) {
+        candidataAtivaId = res.candidata.id;
+        notasSelecionadas = {};
+        clearSignature();
+        jaEnviouVoto = false;
+
+        Api.call('get_quesitos', { event_id: EVT, login: session.codigo }).then(function (qres) {
+          quesitosAtuais = qres.quesitos || [];
+          Api.call('get_my_vote', { event_id: EVT, id_candidata: res.candidata.id, login: session.codigo }).then(function (voto) {
+            jaEnviouVoto = !!(voto.votos && voto.votos.length);
+            renderQuesitos();
+            atualizarEstadoTela(res.statusSistema);
+          });
+        });
+        return;
+      }
+
+      // Mesma candidata de antes — só atualiza o estado de exibição
+      // (interrompido / aguardando / votando), sem redesenhar o formulário
+      // e sem apagar nada que o avaliador já preencheu.
+      atualizarEstadoTela(res.statusSistema);
     });
+  }
+
+  function atualizarEstadoTela(statusSistema) {
+    var pill = document.getElementById('statusPill');
+    var aguardando = document.getElementById('aguardandoPresidenteState');
+    var form = document.getElementById('voteForm');
+
+    if (statusSistema === 'INTERROMPIDO') {
+      pill.className = 'badge badge-warn';
+      pill.innerHTML = '<span class="badge-dot"></span>Avaliação interrompida';
+      form.style.display = 'none';
+      aguardando.style.display = 'block';
+      document.getElementById('aguardandoTitulo').textContent = 'Avaliação interrompida pelo presidente de mesa';
+      document.getElementById('aguardandoTexto').textContent = jaEnviouVoto
+        ? 'Seu voto já foi enviado. Aguarde o presidente retomar o andamento do concurso.'
+        : 'Suas anotações estão salvas. Assim que o presidente retomar, você continua de onde parou.';
+      return;
+    }
+
+    if (jaEnviouVoto) {
+      pill.className = 'badge badge-info';
+      pill.innerHTML = '<span class="badge-dot"></span>Aguardando presidente de mesa';
+      form.style.display = 'none';
+      aguardando.style.display = 'block';
+      document.getElementById('aguardandoTitulo').textContent = 'Voto enviado com sucesso';
+      document.getElementById('aguardandoTexto').textContent = 'O presidente de mesa vai revisar as notas. Se algo for questionado, você verá o quesito questionado no topo desta tela.';
+      return;
+    }
+
+    pill.className = 'badge badge-active';
+    pill.innerHTML = '<span class="badge-dot"></span>Em avaliação';
+    aguardando.style.display = 'none';
+    form.style.display = 'block';
   }
 
   function renderQuesitos() {
@@ -304,14 +342,25 @@
       assinatura: signatureDataUrl()
     }).then(function (res) {
       btn.disabled = false;
-      if (res.success) Toast.success(res.message);
-      else Toast.error(res.message);
+      if (res.success) {
+        Toast.success(res.message);
+        jaEnviouVoto = true;
+        atualizarEstadoTela('EM_AVALIACAO');
+      } else {
+        Toast.error(res.message);
+      }
     });
   }
 
   /* ---------------- correções pendentes do avaliador ---------------- */
 
+  var mapaQuesitosCorrecao = {};
+
   function loadPendingCorrections() {
+    Api.call('get_quesitos', { event_id: EVT }).then(function (qres) {
+      (qres.quesitos || []).forEach(function (q) { mapaQuesitosCorrecao[q.id] = q.nome; });
+    });
+
     Api.call('get_my_pending_corrections', { event_id: EVT, login: session.codigo }).then(function (res) {
       var host = document.getElementById('pendingCorrections');
       var lista = res.correcoes || [];
@@ -319,27 +368,59 @@
 
       host.innerHTML = '<div class="card" style="border-color:#f2dcab;background:#fffaf0;">' +
         '<div class="card__head"><div><h2 class="card__title">Questionamento sobre uma nota sua</h2>' +
-        '<p class="card__desc">O presidente de mesa pediu revisão. Envie a nota e justificativa corrigidas.</p></div></div>' +
+        '<p class="card__desc">O presidente de mesa pediu revisão. Responda se a nota está correta ou se você vai corrigi-la.</p></div></div>' +
         lista.map(function (c) {
+          var nomeQ = mapaQuesitosCorrecao[c.idQuesito] || c.idQuesito.toUpperCase();
           return '<div style="border-top:1px solid var(--app-border);padding-top:14px;margin-top:10px;">' +
-            '<p style="font-size:13px;margin-bottom:8px;"><strong>Quesito ' + c.idQuesito.toUpperCase() + '</strong> — motivo: ' + c.motivo + '</p>' +
+            '<p style="font-size:13px;margin-bottom:4px;"><strong>Quesito: ' + nomeQ + '</strong></p>' +
+            '<p style="font-size:13px;margin-bottom:4px;">Nota original: <strong>' + Number(c.notaAntes).toFixed(1) + '</strong></p>' +
+            '<p style="font-size:13px;margin-bottom:10px;color:var(--ink-soft);">Motivo do questionamento: "' + c.motivo + '"</p>' +
+
+            '<div id="respostaBotoes-' + c.id + '" style="display:flex;gap:8px;flex-wrap:wrap;">' +
+            '<button class="btn btn-success btn-sm" onclick="confirmarNotaCorreta(\'' + c.id + '\')">✓ Está correto, mantenho a nota</button>' +
+            '<button class="btn btn-secondary btn-sm" onclick="mostrarFormCorrecao(\'' + c.id + '\')">Vou corrigir</button>' +
+            '</div>' +
+
+            '<div id="formCorrecao-' + c.id + '" style="display:none;margin-top:10px;">' +
+            '<div class="form-field">' +
+            '<label>Por que você está corrigindo esta nota?</label>' +
+            '<textarea placeholder="Explique o motivo da correção (obrigatório)" id="fix-motivo-' + c.id + '"></textarea>' +
+            '</div>' +
             '<div class="field-row">' +
             '<input type="text" placeholder="Nova nota (ex: 9,5)" id="fix-nota-' + c.id + '">' +
-            '<input type="text" placeholder="Nova justificativa" id="fix-just-' + c.id + '">' +
+            '<input type="text" placeholder="Nova justificativa do quesito" id="fix-just-' + c.id + '">' +
             '</div>' +
             '<button class="btn btn-secondary btn-sm" style="margin-top:8px;" onclick="enviarCorrecao(\'' + c.id + '\')">Enviar correção</button>' +
+            '</div>' +
             '</div>';
         }).join('') +
         '</div>';
     });
   }
 
+  window.confirmarNotaCorreta = function (id) {
+    Api.call('submit_correction', { event_id: EVT, id_correcao: id, tipo: 'confirmar', usuario: session.nome, perfil: 'AVALIADOR' }).then(function (res) {
+      res.success ? Toast.success(res.message) : Toast.error(res.message);
+      loadPendingCorrections();
+    });
+  };
+
+  window.mostrarFormCorrecao = function (id) {
+    document.getElementById('respostaBotoes-' + id).style.display = 'none';
+    document.getElementById('formCorrecao-' + id).style.display = 'block';
+  };
+
   window.enviarCorrecao = function (id) {
+    var motivoResposta = document.getElementById('fix-motivo-' + id).value.trim();
     var nota = document.getElementById('fix-nota-' + id).value.replace(',', '.').trim();
     var just = document.getElementById('fix-just-' + id).value.trim();
-    if (!nota || just.length < 10) { Toast.error('Informe nota e uma justificativa com pelo menos 10 caracteres.'); return; }
+    if (!motivoResposta) { Toast.error('Explique por que está corrigindo a nota.'); return; }
+    if (!nota || !just) { Toast.error('Informe a nova nota e a nova justificativa.'); return; }
 
-    Api.call('submit_correction', { event_id: EVT, id_correcao: id, nota: Number(nota), justificativa: just }).then(function (res) {
+    Api.call('submit_correction', {
+      event_id: EVT, id_correcao: id, tipo: 'corrigir', motivoResposta: motivoResposta,
+      nota: Number(nota), justificativa: just, usuario: session.nome, perfil: 'AVALIADOR'
+    }).then(function (res) {
       res.success ? Toast.success(res.message) : Toast.error(res.message);
       loadPendingCorrections();
     });
