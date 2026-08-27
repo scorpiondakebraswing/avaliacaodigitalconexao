@@ -475,7 +475,7 @@ async function getOfficialRanking(body) {
     getQuesitosParaEvento(body.event_id), getCandidatasDoEvento(body.event_id), getVotosDoEvento(body.event_id)
   ]);
   const auditadas = candidatasTodas.filter((c) => c.status_auditoria === 'AUDITADA');
-  return { success: true, ranking: gerarRanking(auditadas, votos, quesitos, (evento.regras || REGRAS_PADRAO).regraDescarte) };
+  return { success: true, ranking: gerarRanking(auditadas, votos, quesitos, evento.regras || REGRAS_PADRAO) };
 }
 
 async function getScoreboard(body) {
@@ -483,7 +483,7 @@ async function getScoreboard(body) {
   const [quesitos, candidatas, votos] = await Promise.all([
     getQuesitosParaEvento(body.event_id), getCandidatasDoEvento(body.event_id), getVotosDoEvento(body.event_id)
   ]);
-  return { success: true, ranking: gerarRanking(candidatas, votos, quesitos, (evento.regras || REGRAS_PADRAO).regraDescarte) };
+  return { success: true, ranking: gerarRanking(candidatas, votos, quesitos, evento.regras || REGRAS_PADRAO) };
 }
 
 /* ============================= correções ============================= */

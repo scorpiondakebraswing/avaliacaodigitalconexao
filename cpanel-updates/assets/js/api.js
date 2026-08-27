@@ -370,7 +370,7 @@ var Api = {
         var novoEventoId = "evt-" + Date.now();
         db.eventos.push({
           id: novoEventoId, clienteId: p.cliente_id, nome: p.nome, statusConcurso: "A_INICIAR", dataInicio: "", dataFim: "",
-          config: { idAtiva: "", idPreparada: "", statusSistema: "AGUARDANDO", revealIndex: 0, regras: JSON.parse(JSON.stringify(MockDB.REGRAS_PADRAO || { notaMin: 8, notaMax: 10, notaTipo: "fracionada", regraDescarte: "maior_e_menor", justificativaObrigatoria: true, minCaracteresJustificativa: 10, assinaturaObrigatoria: true })) },
+          config: { idAtiva: "", idPreparada: "", statusSistema: "AGUARDANDO", revealIndex: 0, regras: JSON.parse(JSON.stringify(MockDB.REGRAS_PADRAO || { notaMin: 8, notaMax: 10, notaTipo: "fracionada", regraDescarte: "maior_e_menor", desempatePorQuesito: true, justificativaObrigatoria: true, minCaracteresJustificativa: 10, assinaturaObrigatoria: true })) },
           candidatas: [], votos: [], correcoes: [], logs: []
         });
         MockDB.save(db);

@@ -63,6 +63,7 @@ var MockDB = {
               notaMax: 10,
               notaTipo: "fracionada", // 'fracionada' (x,5 de 1 em 1) | 'quebrada' (0,1 em 0,1)
               regraDescarte: "maior_e_menor", // 'sem_descarte' | 'maior' | 'maior_e_menor'
+              desempatePorQuesito: true,
               justificativaObrigatoria: true,
               minCaracteresJustificativa: 10,
               assinaturaObrigatoria: true
@@ -197,7 +198,11 @@ var MockDB = {
   },
 
   computeRanking: function (evento, somenteAuditadas, quesitos) {
-    quesitos = quesitos.slice().sort(function (a, b) { return a.ordem - b.ordem; });
+    var regras = (evento.config && evento.config.regras) || {};
+    var desempatarPorPeso = regras.desempatePorQuesito !== false;
+
+    var quesitosOrdenados = quesitos.slice().sort(function (a, b) { return a.ordem - b.ordem; });
+    var quesitosPorPeso = quesitos.slice().sort(function (a, b) { return (Number(a.peso) || 0) - (Number(b.peso) || 0); });
 
     var candidatas = evento.candidatas.filter(function (c) {
       if (somenteAuditadas) return c.statusAuditoria === "AUDITADA";
@@ -210,11 +215,11 @@ var MockDB = {
       var observacao = "";
 
       if (c.flagEspecial === "DESCLASSIFICADA" || c.flagEspecial === "DESISTENTE") {
-        quesitos.forEach(function (q) { detalhamento[q.id] = 0; });
+        quesitosOrdenados.forEach(function (q) { detalhamento[q.id] = 0; });
         return { id: c.id, nome: c.nome, cidade: c.cidade, estado: c.estado, total: 0, detalhamento: detalhamento, observacao: c.flagEspecial };
       }
 
-      quesitos.forEach(function (q) {
+      quesitosOrdenados.forEach(function (q) {
         var notas = evento.votos
           .filter(function (v) { return v.candidataId === c.id && v.quesitoId === q.id; })
           .map(function (v) { return Number(v.nota); });
@@ -234,8 +239,9 @@ var MockDB = {
       if (!aEsp && bEsp) return -1;
       if (aEsp && bEsp) return 0;
       if (b.total !== a.total) return b.total - a.total;
-      for (var i = 0; i < quesitos.length; i++) {
-        var q = quesitos[i];
+      if (!desempatarPorPeso) return 0;
+      for (var i = 0; i < quesitosPorPeso.length; i++) {
+        var q = quesitosPorPeso[i];
         var av = a.detalhamento[q.id] || 0;
         var bv = b.detalhamento[q.id] || 0;
         if (bv !== av) return bv - av;
@@ -252,14 +258,18 @@ var MockDB = {
 
       if (Number(atual.total) === Number(prox.total)) {
         var obs = "Empate total após todos os critérios.";
-        for (var j = 0; j < quesitos.length; j++) {
-          var q2 = quesitos[j];
-          var aVal = atual.detalhamento[q2.id] || 0;
-          var bVal = prox.detalhamento[q2.id] || 0;
-          if (aVal !== bVal) {
-            obs = "Desempate aplicado por " + q2.nome + " (" + aVal + " x " + bVal + ")";
-            break;
+        if (desempatarPorPeso) {
+          for (var j = 0; j < quesitosPorPeso.length; j++) {
+            var q2 = quesitosPorPeso[j];
+            var aVal = atual.detalhamento[q2.id] || 0;
+            var bVal = prox.detalhamento[q2.id] || 0;
+            if (aVal !== bVal) {
+              obs = "Desempate aplicado por peso — " + q2.nome + " (peso " + q2.peso + "): " + aVal + " x " + bVal;
+              break;
+            }
           }
+        } else {
+          obs = "Empate — desempate por peso de quesitos está desativado neste evento.";
         }
         atual.observacao = obs;
         prox.observacao = obs;

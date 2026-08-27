@@ -6,7 +6,7 @@
 <title>Painel do Administrador — Avaliação Digital 2.0</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;700;800&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="assets/css/style.css?v=7">
+<link rel="stylesheet" href="assets/css/style.css?v=9">
 </head>
 <body>
 
@@ -108,13 +108,13 @@
           <div class="card__head">
             <div>
               <h2 class="card__title">Quesitos de avaliação (catálogo geral)</h2>
-              <p class="card__desc">Válidos para todos os eventos, ou só para os que você selecionar.</p>
+              <p class="card__desc">Válidos para todos os eventos, ou só para os que você selecionar. O <strong>Peso</strong> define a ordem de prioridade no desempate (peso 1 é conferido primeiro) — veja "Desempate" na edição do evento.</p>
             </div>
             <button class="btn btn-primary btn-sm" id="btnNovoQuesito">+ Novo quesito</button>
           </div>
           <div class="table-wrap">
             <table>
-              <thead><tr><th>Ordem</th><th>Nome do quesito</th><th>Peso</th><th>Válido para</th><th>Ações</th></tr></thead>
+              <thead><tr><th>Ordem</th><th>Nome do quesito</th><th>Peso (desempate)</th><th>Válido para</th><th>Ações</th></tr></thead>
               <tbody id="quesitosBody"></tbody>
             </table>
           </div>
@@ -265,6 +265,17 @@
       </p>
     </div>
 
+    <h3 style="font-size:14px;margin:18px 0 10px;">Desempate</h3>
+
+    <div class="form-field">
+      <label><input type="checkbox" id="editDesempatePorPeso" style="width:auto;margin-right:8px;" checked>Desempatar por peso dos quesitos</label>
+      <p class="hint">
+        Se dois grupos empatarem no total, o sistema compara quesito por quesito, começando pelo de <strong>menor peso</strong> (peso 1 primeiro, depois peso 2, e assim por diante). O primeiro quesito em que as notas forem diferentes decide quem fica na frente.<br><br>
+        Exemplo: Grupo X e Grupo Y empatam no total. No quesito de peso 1, X tirou 10 e Y tirou 9,9 — mesmo que em outro quesito Y tenha tirado mais, X fica acima no ranking, porque o quesito de peso 1 já decidiu o desempate.<br><br>
+        Ajuste o peso de cada quesito na aba "Quesitos". Se desativado aqui, empates ficam marcados como "Empate total", sem desempate automático.
+      </p>
+    </div>
+
     <div class="form-field">
       <label><input type="checkbox" id="editJustificativaObrigatoria" style="width:auto;margin-right:8px;" checked onchange="document.getElementById('minCaracteresField').style.display = this.checked ? 'block' : 'none';">Exigir justificativa nos quesitos</label>
       <p class="hint">Se desativado, o avaliador pode enviar a nota sem escrever nada no campo de justificativa.</p>
@@ -299,12 +310,12 @@
   </div>
 </div>
 
-<script src="assets/js/config.js?v=7"></script>
-<script src="assets/js/mock-data.js?v=7"></script>
-<script src="assets/js/api.js?v=7"></script>
-<script src="assets/js/session.js?v=7"></script>
-<script src="assets/js/toast.js?v=7"></script>
-<script src="assets/js/shell.js?v=7"></script>
+<script src="assets/js/config.js?v=9"></script>
+<script src="assets/js/mock-data.js?v=9"></script>
+<script src="assets/js/api.js?v=9"></script>
+<script src="assets/js/session.js?v=9"></script>
+<script src="assets/js/toast.js?v=9"></script>
+<script src="assets/js/shell.js?v=9"></script>
 <script>
   var session = Session.require(['admin']);
   if (session) { Shell.init(session); boot(); }
@@ -447,6 +458,7 @@
       document.getElementById('editNotaMax').value = r.notaMax != null ? r.notaMax : 10;
       document.getElementById('editNotaTipo').value = r.notaTipo || 'fracionada';
       document.getElementById('editRegraDescarte').value = r.regraDescarte || 'sem_descarte';
+      document.getElementById('editDesempatePorPeso').checked = r.desempatePorQuesito !== false;
       document.getElementById('editMinCaracteres').value = r.minCaracteresJustificativa != null ? r.minCaracteresJustificativa : 10;
       document.getElementById('editJustificativaObrigatoria').checked = r.justificativaObrigatoria !== false;
       document.getElementById('minCaracteresField').style.display = (r.justificativaObrigatoria !== false) ? 'block' : 'none';
@@ -475,6 +487,7 @@
       notaMax: Number(document.getElementById('editNotaMax').value),
       notaTipo: document.getElementById('editNotaTipo').value,
       regraDescarte: document.getElementById('editRegraDescarte').value,
+      desempatePorQuesito: document.getElementById('editDesempatePorPeso').checked,
       minCaracteresJustificativa: document.getElementById('editJustificativaObrigatoria').checked ? (Number(document.getElementById('editMinCaracteres').value) || 0) : 0,
       justificativaObrigatoria: document.getElementById('editJustificativaObrigatoria').checked,
       assinaturaObrigatoria: document.getElementById('editAssinaturaObrigatoria').checked
