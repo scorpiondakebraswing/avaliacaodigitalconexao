@@ -227,12 +227,12 @@
   </div>
 </div>
 
-<script src="assets/js/config.js?v=14"></script>
-<script src="assets/js/mock-data.js?v=14"></script>
-<script src="assets/js/api.js?v=14"></script>
-<script src="assets/js/session.js?v=14"></script>
-<script src="assets/js/toast.js?v=14"></script>
-<script src="assets/js/shell.js?v=14"></script>
+<script src="assets/js/config.js?v=15"></script>
+<script src="assets/js/mock-data.js?v=15"></script>
+<script src="assets/js/api.js?v=15"></script>
+<script src="assets/js/session.js?v=15"></script>
+<script src="assets/js/toast.js?v=15"></script>
+<script src="assets/js/shell.js?v=15"></script>
 <script>
   var session = Session.require(['presidente', 'admin']);
   if (session) {
@@ -498,9 +498,11 @@
     Api.call('get_candidate_audit', { event_id: EVT, id_candidata: id }).then(function (res) {
       var html = (res.detalhamento || []).map(function (q) {
         var rows = q.votos.map(function (v) {
-          return '<tr' + (v.descartada ? ' style="opacity:.45;text-decoration:line-through;"' : '') + '>' +
-            '<td>' + v.avaliador + '</td><td>' + Number(v.nota).toFixed(1) + '</td><td style="font-size:12px;">' + v.justificativa + '</td>' +
-            '<td>' + (v.descartada ? '<span class="badge badge-warn">Descartada</span>' : '<span class="badge badge-active">Considerada</span>') + '</td></tr>';
+          var cor = v.descartada ? 'var(--coral)' : 'var(--green-ok)';
+          var estiloNota = v.descartada ? 'color:' + cor + ';text-decoration:line-through;' : 'color:' + cor + ';font-weight:600;';
+          return '<tr>' +
+            '<td>' + v.avaliador + '</td><td style="' + estiloNota + '">' + Number(v.nota).toFixed(1) + '</td><td style="font-size:12px;">' + v.justificativa + '</td>' +
+            '<td>' + (v.descartada ? '<span class="badge badge-danger">Descartada</span>' : '<span class="badge badge-active">Considerada</span>') + '</td></tr>';
         }).join('');
         return '<h3 style="font-size:14px;margin:16px 0 8px;">' + q.quesito + '</h3><div class="table-wrap"><table><thead><tr><th>Avaliador</th><th>Nota</th><th>Justificativa</th><th></th></tr></thead><tbody>' + rows + '</tbody></table></div>';
       }).join('');
@@ -545,14 +547,43 @@
         VALIDADA: '<span class="badge badge-active">Corrigido e validado</span>'
       };
 
+      function montarAcoesEComparacao(corr, candidataId, login, quesitoId, avaliadorNome, candidataNome) {
+        if (!corr) {
+          return {
+            destaque: '', badge: '', comparacao: '',
+            acoes: '<button class="btn btn-ghost btn-sm" onclick="abrirCorrecao(\'' + candidataId + '\',\'' + login + '\',\'' + quesitoId + '\',\'' + avaliadorNome.replace(/'/g, "") + '\',\'' + candidataNome.replace(/'/g, "") + '\')">Questionar</button>'
+          };
+        }
+
+        var acoesArr = [];
+        if (corr.status === 'PENDENTE_CORRECAO') {
+          acoesArr.push('<button class="btn btn-ghost btn-sm" onclick="cancelarCorrecao(\'' + corr.id + '\')">Cancelar questionamento</button>');
+        } else if (corr.status === 'CORRIGIDA') {
+          acoesArr.push('<button class="btn btn-success btn-sm" onclick="validarCorrecao(\'' + corr.id + '\')">Validar nota</button>');
+          acoesArr.push('<button class="btn btn-ghost btn-sm" onclick="cancelarCorrecao(\'' + corr.id + '\')">Cancelar questionamento</button>');
+        } else if (corr.status === 'CONFIRMADA') {
+          acoesArr.push('<button class="btn btn-ghost btn-sm" onclick="cancelarCorrecao(\'' + corr.id + '\')">Cancelar questionamento</button>');
+        } else if (corr.status === 'VALIDADA') {
+          acoesArr.push('<span style="color:var(--green-ok);font-weight:600;font-size:11.5px;">✓ Validado</span>');
+        }
+
+        var comparacao = '';
+        if (corr.notaDepois !== undefined && corr.notaDepois !== null && corr.notaDepois !== '') {
+          comparacao = '<div style="font-size:11px;margin-top:5px;line-height:1.5;">' +
+            '<span style="color:var(--coral);">antes: <strong>' + corr.notaAntes + '</strong> — "' + (corr.justificativaAntes || '') + '"</span><br>' +
+            '<span style="color:var(--green-ok);">depois: <strong>' + corr.notaDepois + '</strong> — "' + (corr.justificativaDepois || '') + '"</span>' +
+            '</div>';
+        }
+
+        return { destaque: ' style="background:#fff8ea;"', badge: '<div style="margin-top:4px;">' + (statusLabel[corr.status] || corr.status) + '</div>', comparacao: comparacao, acoes: acoesArr.join(' ') };
+      }
+
       container.innerHTML = candidatas.map(function (c) {
         var rows = c.votos.map(function (v) {
           var corr = acharCorrecao(c.id, v.avaliador, v.quesitoId);
-          var destaque = corr ? ' style="background:#fff8ea;"' : '';
-          var badge = corr ? '<div style="margin-top:4px;">' + (statusLabel[corr.status] || corr.status) + '</div>' : '';
-          var motivoLinha = corr ? '<div style="font-size:11.5px;color:var(--ink-faint);margin-top:3px;">Motivo do questionamento: "' + corr.motivo + '"' + (corr.motivoResposta ? ' · Resposta do avaliador: "' + corr.motivoResposta + '"' : '') + '</div>' : '';
-          return '<tr' + destaque + '><td>' + v.avaliadorNome + '</td><td>' + nomeQuesito(v.quesitoId) + '</td><td>' + Number(v.nota).toFixed(1) + '</td><td style="max-width:260px;font-size:12.5px;">' + v.justificativa + badge + motivoLinha + '</td>' +
-            '<td><button class="btn btn-ghost btn-sm" onclick="abrirCorrecao(\'' + c.id + '\',\'' + v.avaliador + '\',\'' + v.quesitoId + '\',\'' + v.avaliadorNome.replace(/'/g, "") + '\',\'' + c.nome.replace(/'/g, "") + '\')">Questionar</button></td></tr>';
+          var info = montarAcoesEComparacao(corr, c.id, v.avaliador, v.quesitoId, v.avaliadorNome, c.nome);
+          return '<tr' + info.destaque + '><td>' + v.avaliadorNome + '</td><td>' + nomeQuesito(v.quesitoId) + '</td><td>' + Number(v.nota).toFixed(1) + '</td><td style="max-width:260px;font-size:12.5px;">' + v.justificativa + info.badge + info.comparacao + '</td>' +
+            '<td style="white-space:nowrap;">' + info.acoes + '</td></tr>';
         }).join('');
         return '<div style="display:flex;align-items:center;justify-content:space-between;margin:18px 0 8px;">' +
           '<h3 style="font-size:15px;margin:0;">' + c.nome + '</h3>' +
@@ -642,7 +673,9 @@
       container.innerHTML = candidatas.map(function (c) {
         var blocos = c.detalhamento.map(function (q) {
           var rows = q.votos.map(function (v) {
-            return '<tr' + (v.descartada ? ' style="opacity:.45;text-decoration:line-through;"' : '') + '><td>' + v.avaliador + '</td><td>' + Number(v.nota).toFixed(1) + '</td></tr>';
+            var cor = v.descartada ? 'var(--coral)' : 'var(--green-ok)';
+            var estilo = v.descartada ? 'color:' + cor + ';text-decoration:line-through;opacity:.8;' : 'color:' + cor + ';font-weight:600;';
+            return '<tr><td>' + v.avaliador + '</td><td style="' + estilo + '">' + Number(v.nota).toFixed(1) + (v.descartada ? ' (descartada)' : '') + '</td></tr>';
           }).join('');
           return '<div style="margin-bottom:10px;"><strong style="font-size:12.5px;">' + q.quesito + '</strong><div class="table-wrap"><table><tbody>' + rows + '</tbody></table></div></div>';
         }).join('');
@@ -729,7 +762,7 @@
   window.cancelarCorrecao = function (id) {
     Api.call('cancel_correction', { event_id: EVT, id_correcao: id }).then(function (res) {
       res.success ? Toast.success(res.message) : Toast.error(res.message);
-      loadCorrecoes();
+      loadCorrecoes(); loadRecebidas();
     });
   };
 </script>

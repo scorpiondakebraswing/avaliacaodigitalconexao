@@ -139,12 +139,12 @@
   </div>
 </div>
 
-<script src="assets/js/config.js?v=14"></script>
-<script src="assets/js/mock-data.js?v=14"></script>
-<script src="assets/js/api.js?v=14"></script>
-<script src="assets/js/session.js?v=14"></script>
-<script src="assets/js/toast.js?v=14"></script>
-<script src="assets/js/shell.js?v=14"></script>
+<script src="assets/js/config.js?v=15"></script>
+<script src="assets/js/mock-data.js?v=15"></script>
+<script src="assets/js/api.js?v=15"></script>
+<script src="assets/js/session.js?v=15"></script>
+<script src="assets/js/toast.js?v=15"></script>
+<script src="assets/js/shell.js?v=15"></script>
 <script>
   var session = Session.require(['consultor', 'admin']);
   if (session) { Shell.init(session); boot(); }
@@ -348,7 +348,9 @@
       container.innerHTML = candidatas.map(function (c) {
         var blocos = c.detalhamento.map(function (q) {
           var rows = q.votos.map(function (v) {
-            return '<tr' + (v.descartada ? ' style="opacity:.45;text-decoration:line-through;"' : '') + '><td>' + v.avaliador + '</td><td>' + Number(v.nota).toFixed(1) + '</td></tr>';
+            var cor = v.descartada ? 'var(--coral)' : 'var(--green-ok)';
+            var estilo = v.descartada ? 'color:' + cor + ';text-decoration:line-through;opacity:.8;' : 'color:' + cor + ';font-weight:600;';
+            return '<tr><td>' + v.avaliador + '</td><td style="' + estilo + '">' + Number(v.nota).toFixed(1) + (v.descartada ? ' (descartada)' : '') + '</td></tr>';
           }).join('');
           return '<div style="margin-bottom:10px;"><strong style="font-size:12.5px;">' + q.quesito + '</strong><div class="table-wrap"><table><tbody>' + rows + '</tbody></table></div></div>';
         }).join('');

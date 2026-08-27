@@ -101,12 +101,12 @@
   </div>
 </div>
 
-<script src="assets/js/config.js?v=14"></script>
-<script src="assets/js/mock-data.js?v=14"></script>
-<script src="assets/js/api.js?v=14"></script>
-<script src="assets/js/session.js?v=14"></script>
-<script src="assets/js/toast.js?v=14"></script>
-<script src="assets/js/shell.js?v=14"></script>
+<script src="assets/js/config.js?v=15"></script>
+<script src="assets/js/mock-data.js?v=15"></script>
+<script src="assets/js/api.js?v=15"></script>
+<script src="assets/js/session.js?v=15"></script>
+<script src="assets/js/toast.js?v=15"></script>
+<script src="assets/js/shell.js?v=15"></script>
 <script>
   var session = Session.require(['avaliador']);
   if (session) {
@@ -355,6 +355,8 @@
   /* ---------------- correções pendentes do avaliador ---------------- */
 
   var mapaQuesitosCorrecao = {};
+  var assinaturaPendentesAnterior = '';
+  var notaCorrecaoSelecionada = {};
 
   function loadPendingCorrections() {
     Api.call('get_quesitos', { event_id: EVT }).then(function (qres) {
@@ -364,6 +366,14 @@
     Api.call('get_my_pending_corrections', { event_id: EVT, login: session.codigo }).then(function (res) {
       var host = document.getElementById('pendingCorrections');
       var lista = res.correcoes || [];
+
+      // Assinatura simples da lista (ids + status). Se nada mudou desde a
+      // última vez, NÃO redesenha — assim não apaga o que o avaliador já
+      // está digitando no formulário de correção aberto.
+      var assinatura = lista.map(function (c) { return c.id + ':' + c.status; }).join('|');
+      if (assinatura === assinaturaPendentesAnterior && host.innerHTML !== '') return;
+      assinaturaPendentesAnterior = assinatura;
+
       if (!lista.length) { host.innerHTML = ''; return; }
 
       host.innerHTML = '<div class="card" style="border-color:#f2dcab;background:#fffaf0;">' +
@@ -371,6 +381,10 @@
         '<p class="card__desc">O presidente de mesa pediu revisão. Responda se a nota está correta ou se você vai corrigi-la.</p></div></div>' +
         lista.map(function (c) {
           var nomeQ = mapaQuesitosCorrecao[c.idQuesito] || c.idQuesito.toUpperCase();
+          var opcoesNota = VALORES_NOTA.map(function (v) {
+            return '<button type="button" class="note-option" data-correcao="' + c.id + '" data-value="' + v + '" onclick="selecionarNotaCorrecao(\'' + c.id + '\',' + v + ',this)">' + v.toFixed(1) + '</button>';
+          }).join('');
+
           return '<div style="border-top:1px solid var(--app-border);padding-top:14px;margin-top:10px;">' +
             '<p style="font-size:13px;margin-bottom:4px;"><strong>Quesito: ' + nomeQ + '</strong></p>' +
             '<p style="font-size:13px;margin-bottom:4px;">Nota original: <strong>' + Number(c.notaAntes).toFixed(1) + '</strong></p>' +
@@ -383,12 +397,16 @@
 
             '<div id="formCorrecao-' + c.id + '" style="display:none;margin-top:10px;">' +
             '<div class="form-field">' +
+            '<label>Nova nota</label>' +
+            '<div class="note-picker">' + opcoesNota + '</div>' +
+            '</div>' +
+            '<div class="form-field">' +
             '<label>Por que você está corrigindo esta nota?</label>' +
             '<textarea placeholder="Explique o motivo da correção (obrigatório)" id="fix-motivo-' + c.id + '"></textarea>' +
             '</div>' +
-            '<div class="field-row">' +
-            '<input type="text" placeholder="Nova nota (ex: 9,5)" id="fix-nota-' + c.id + '">' +
-            '<input type="text" placeholder="Nova justificativa do quesito" id="fix-just-' + c.id + '">' +
+            '<div class="form-field">' +
+            '<label>Nova justificativa do quesito</label>' +
+            '<textarea placeholder="Nova justificativa" id="fix-just-' + c.id + '"></textarea>' +
             '</div>' +
             '<button class="btn btn-secondary btn-sm" style="margin-top:8px;" onclick="enviarCorrecao(\'' + c.id + '\')">Enviar correção</button>' +
             '</div>' +
@@ -398,9 +416,17 @@
     });
   }
 
+  window.selecionarNotaCorrecao = function (correcaoId, valor, btn) {
+    notaCorrecaoSelecionada[correcaoId] = valor;
+    var grupo = btn.parentElement;
+    Array.prototype.slice.call(grupo.querySelectorAll('.note-option')).forEach(function (b) { b.classList.remove('is-selected'); });
+    btn.classList.add('is-selected');
+  };
+
   window.confirmarNotaCorreta = function (id) {
     Api.call('submit_correction', { event_id: EVT, id_correcao: id, tipo: 'confirmar', usuario: session.nome, perfil: 'AVALIADOR' }).then(function (res) {
       res.success ? Toast.success(res.message) : Toast.error(res.message);
+      assinaturaPendentesAnterior = ''; // força redesenhar após a resposta
       loadPendingCorrections();
     });
   };
@@ -412,16 +438,18 @@
 
   window.enviarCorrecao = function (id) {
     var motivoResposta = document.getElementById('fix-motivo-' + id).value.trim();
-    var nota = document.getElementById('fix-nota-' + id).value.replace(',', '.').trim();
+    var nota = notaCorrecaoSelecionada[id];
     var just = document.getElementById('fix-just-' + id).value.trim();
     if (!motivoResposta) { Toast.error('Explique por que está corrigindo a nota.'); return; }
-    if (!nota || !just) { Toast.error('Informe a nova nota e a nova justificativa.'); return; }
+    if (!nota) { Toast.error('Selecione a nova nota.'); return; }
+    if (!just) { Toast.error('Informe a nova justificativa.'); return; }
 
     Api.call('submit_correction', {
       event_id: EVT, id_correcao: id, tipo: 'corrigir', motivoResposta: motivoResposta,
-      nota: Number(nota), justificativa: just, usuario: session.nome, perfil: 'AVALIADOR'
+      nota: nota, justificativa: just, usuario: session.nome, perfil: 'AVALIADOR'
     }).then(function (res) {
       res.success ? Toast.success(res.message) : Toast.error(res.message);
+      assinaturaPendentesAnterior = ''; // força redesenhar após a resposta
       loadPendingCorrections();
     });
   };
