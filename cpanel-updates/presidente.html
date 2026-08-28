@@ -91,7 +91,7 @@
           <div class="table-wrap">
             <table>
               <thead>
-                <tr><th>Ordem</th><th>Candidata</th><th>Estado</th><th>Status</th><th>Ações</th></tr>
+                <tr><th>Ordem</th><th>Candidata</th><th>Cidade</th><th>Estado</th><th>Status</th><th>Ações</th></tr>
               </thead>
               <tbody id="filaBody"></tbody>
             </table>
@@ -109,6 +109,9 @@
               <p class="card__desc">Todos os votos brutos enviados pelos avaliadores. Use "Questionar" para abrir uma correção.</p>
             </div>
           </div>
+          <div class="form-field" style="max-width:340px;">
+            <input type="text" id="filtroRecebidas" placeholder="Buscar grupo pelo nome..." oninput="recebidasFiltro=this.value;loadRecebidas();">
+          </div>
           <div id="recebidasContainer"></div>
         </div>
       </section>
@@ -123,7 +126,7 @@
           </div>
           <div class="table-wrap">
             <table>
-              <thead><tr><th>Candidata</th><th>Estado</th><th>Auditoria</th><th>Ações</th></tr></thead>
+              <thead><tr><th>Candidata</th><th>Cidade</th><th>Estado</th><th>Auditoria</th><th>Ações</th></tr></thead>
               <tbody id="finalizadasBody"></tbody>
             </table>
           </div>
@@ -151,7 +154,11 @@
               <h2 class="card__title">Ranking oficial</h2>
               <p class="card__desc">Somente candidatas com auditoria concluída entram aqui.</p>
             </div>
-            <button class="btn btn-danger btn-sm" id="btnEncerrarConcurso">Encerrar concurso</button>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;">
+              <button class="btn btn-secondary btn-sm" id="btnPdfSintetico">📄 PDF sintético</button>
+              <button class="btn btn-secondary btn-sm" id="btnPdfAnalitico">📑 PDF analítico</button>
+              <button class="btn btn-danger btn-sm" id="btnEncerrarConcurso">Encerrar concurso</button>
+            </div>
           </div>
           <div class="table-wrap">
             <table>
@@ -228,12 +235,12 @@
   </div>
 </div>
 
-<script src="assets/js/config.js?v=21"></script>
-<script src="assets/js/mock-data.js?v=21"></script>
-<script src="assets/js/api.js?v=21"></script>
-<script src="assets/js/session.js?v=21"></script>
-<script src="assets/js/toast.js?v=21"></script>
-<script src="assets/js/shell.js?v=21"></script>
+<script src="assets/js/config.js?v=22"></script>
+<script src="assets/js/mock-data.js?v=22"></script>
+<script src="assets/js/api.js?v=22"></script>
+<script src="assets/js/session.js?v=22"></script>
+<script src="assets/js/toast.js?v=22"></script>
+<script src="assets/js/shell.js?v=22"></script>
 <script>
   var session = Session.require(['presidente', 'admin']);
   if (session) {
@@ -389,12 +396,13 @@
 
   function renderFila(candidatas) {
     var body = document.getElementById('filaBody');
-    if (!candidatas.length) { body.innerHTML = '<tr><td colspan="5" class="table-empty">Nenhuma candidata cadastrada.</td></tr>'; return; }
+    if (!candidatas.length) { body.innerHTML = '<tr><td colspan="6" class="table-empty">Nenhuma candidata cadastrada.</td></tr>'; return; }
 
     body.innerHTML = candidatas.sort(function (a, b) { return a.ordem - b.ordem; }).map(function (c) {
       return '<tr>' +
         '<td>' + c.ordem + '</td>' +
         '<td>' + c.nome + '</td>' +
+        '<td>' + (c.cidade || '') + '</td>' +
         '<td>' + c.estado + '</td>' +
         '<td>' + statusBadge(c) + '</td>' +
         '<td>' + acoesFila(c) + '</td>' +
@@ -482,13 +490,13 @@
     Api.call('get_auditoria_candidates', { event_id: EVT }).then(function (res) {
       var body = document.getElementById('finalizadasBody');
       var lista = res.candidatas || [];
-      if (!lista.length) { body.innerHTML = '<tr><td colspan="4" class="table-empty">Nenhuma candidata finalizada ainda.</td></tr>'; return; }
+      if (!lista.length) { body.innerHTML = '<tr><td colspan="5" class="table-empty">Nenhuma candidata finalizada ainda.</td></tr>'; return; }
       body.innerHTML = lista.map(function (c) {
         var auditada = c.statusAuditoria === 'AUDITADA';
         var botaoRefazer = auditada
           ? ' <button class="btn btn-ghost btn-sm" onclick="refazerAuditoria(\'' + c.id + '\',\'' + c.nome.replace(/'/g, "") + '\')">Refazer auditoria</button>'
           : '';
-        return '<tr><td>' + c.nome + '</td><td>' + c.estado + '</td><td>' +
+        return '<tr><td>' + c.nome + '</td><td>' + (c.cidade || '') + '</td><td>' + c.estado + '</td><td>' +
           (auditada ? '<span class="badge badge-active">Auditada</span>' : '<span class="badge badge-warn">Pendente</span>') +
           '</td><td><button class="btn btn-secondary btn-sm" onclick="abrirAuditoria(\'' + c.id + '\',\'' + c.nome.replace(/'/g, "") + '\',' + auditada + ')">Ver auditoria</button>' + botaoRefazer + '</td></tr>';
       }).join('');
@@ -536,6 +544,15 @@
 
   /* ---------------- NOTAS RECEBIDAS ---------------- */
 
+  var recebidasFiltro = '';
+  var gruposRecebidasEstado = {};
+
+  window.toggleGrupoRecebidas = function (candidataId) {
+    var atual = gruposRecebidasEstado.hasOwnProperty(candidataId) ? gruposRecebidasEstado[candidataId] : true;
+    gruposRecebidasEstado[candidataId] = !atual;
+    loadRecebidas();
+  };
+
   function loadRecebidas() {
     Promise.all([
       Api.call('get_received_notes', { event_id: EVT }),
@@ -546,7 +563,10 @@
       var container = document.getElementById('recebidasContainer');
       var candidatas = (res.candidatas || []).filter(function (c) { return c.votos.length; });
 
-      if (!candidatas.length) { container.innerHTML = '<div class="empty-state"><h3>Ainda sem votos</h3><p>Assim que os avaliadores votarem, as notas aparecem aqui.</p></div>'; return; }
+      var termo = recebidasFiltro.trim().toLowerCase();
+      if (termo) candidatas = candidatas.filter(function (c) { return c.nome.toLowerCase().indexOf(termo) !== -1; });
+
+      if (!candidatas.length) { container.innerHTML = '<div class="empty-state"><h3>' + (termo ? 'Nenhum grupo encontrado' : 'Ainda sem votos') + '</h3><p>' + (termo ? 'Tente outro termo de busca.' : 'Assim que os avaliadores votarem, as notas aparecem aqui.') + '</p></div>'; return; }
 
       function acharCorrecao(candidataId, login, quesitoId) {
         return correcoes.find(function (c) {
@@ -608,17 +628,25 @@
       };
 
       container.innerHTML = candidatas.map(function (c) {
+        var aberto = gruposRecebidasEstado.hasOwnProperty(c.id) ? gruposRecebidasEstado[c.id] : (c.statusAuditoria !== 'AUDITADA');
+        var conteudoId = 'recebidasGrupo-' + c.id;
+
         var rows = c.votos.map(function (v) {
           var corr = acharCorrecao(c.id, v.avaliador, v.quesitoId);
           var info = montarAcoesEComparacao(corr, c.id, v.avaliador, v.quesitoId, v.avaliadorNome, c.nome);
           return '<tr' + info.destaque + '><td>' + v.avaliadorNome + '</td><td>' + nomeQuesito(v.quesitoId) + '</td><td>' + Number(v.nota).toFixed(1) + '</td><td style="max-width:260px;font-size:12.5px;">' + v.justificativa + info.badge + info.comparacao + '</td>' +
             '<td style="white-space:nowrap;">' + info.acoes + '</td></tr>';
         }).join('');
-        return '<div style="display:flex;align-items:center;justify-content:space-between;margin:18px 0 8px;">' +
-          '<h3 style="font-size:15px;margin:0;">' + c.nome + '</h3>' +
-          '<button class="btn btn-secondary btn-sm" onclick="gerarRelatorioCandidata(\'' + c.id + '\')">Gerar relatório (PDF)</button>' +
+
+        return '<div style="margin:18px 0 10px;border-top:1px solid var(--app-border);padding-top:14px;">' +
+          '<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;cursor:pointer;" onclick="toggleGrupoRecebidas(\'' + c.id + '\')">' +
+          '<h3 style="font-size:15px;margin:0;">' + (aberto ? '▾' : '▸') + ' ' + c.nome + ' <span style="font-weight:500;color:var(--ink-faint);font-size:12px;">— ' + (c.cidade || '') + '/' + c.estado + (c.statusAuditoria === 'AUDITADA' ? ' · auditado' : '') + '</span></h3>' +
+          '<button class="btn btn-secondary btn-sm" onclick="event.stopPropagation();gerarRelatorioCandidata(\'' + c.id + '\')">Gerar relatório (PDF)</button>' +
           '</div>' +
-          '<div class="table-wrap"><table><thead><tr><th>Avaliador</th><th>Quesito</th><th>Nota</th><th>Justificativa</th><th></th></tr></thead><tbody>' + rows + '</tbody></table></div>';
+          '<div id="' + conteudoId + '" style="display:' + (aberto ? 'block' : 'none') + ';margin-top:10px;">' +
+          '<div class="table-wrap"><table><thead><tr><th>Avaliador</th><th>Quesito</th><th>Nota</th><th>Justificativa</th><th></th></tr></thead><tbody>' + rows + '</tbody></table></div>' +
+          '</div>' +
+          '</div>';
       }).join('');
     });
   }
@@ -682,6 +710,155 @@
     win.document.write(html);
     win.document.close();
   }
+
+  function abrirJanelaImpressao(html) {
+    var win = window.open('', '_blank');
+    if (!win) { Toast.error('Seu navegador bloqueou a janela do relatório. Permita pop-ups para este site.'); return; }
+    win.document.open();
+    win.document.write(html);
+    win.document.close();
+  }
+
+  var ESTILO_PDF_BASE =
+    'body{font-family:Arial,Helvetica,sans-serif;color:#222;padding:28px;margin:0;}' +
+    '.print-bar{margin-bottom:20px;} .print-bar button{padding:10px 18px;font-size:14px;font-weight:700;cursor:pointer;border-radius:6px;border:none;background:#e3a53d;color:#20120a;}' +
+    'h1{font-size:20px;margin:0 0 2px;} .sub{color:#666;font-size:12.5px;margin-bottom:18px;}' +
+    'table{width:100%;border-collapse:collapse;font-size:12px;margin-bottom:6px;}' +
+    'th,td{padding:6px 8px;border:1px solid #ddd;text-align:left;}' +
+    'th{background:#f2f2f2;font-size:11px;text-transform:uppercase;}' +
+    '@media print{ .print-bar{display:none;} .page{page-break-after:always;} .page:last-child{page-break-after:auto;} }';
+
+  document.getElementById('btnPdfSintetico').addEventListener('click', function () {
+    Promise.all([
+      Api.call('get_official_ranking', { event_id: EVT }),
+      Api.call('get_quesitos', { event_id: EVT }),
+      Api.call('get_validated_table', { event_id: EVT }),
+      Api.call('get_status_concurso', { event_id: EVT })
+    ]).then(function (r) {
+      var ranking = r[0].ranking || [];
+      var quesitos = (r[1].quesitos || []).slice().sort(function (a, b) { return a.ordem - b.ordem; });
+      var validadas = r[2].candidatas || [];
+      var nomeEvento = r[3].nomeConcurso || 'Avaliação Digital';
+
+      if (!ranking.length) { Toast.error('Ranking oficial vazio — nada para gerar ainda.'); return; }
+
+      function detalheDoGrupo(id) { return validadas.find(function (v) { return v.id === id; }); }
+
+      function celulaQuesito(grupoId, quesitoId) {
+        var det = detalheDoGrupo(grupoId);
+        if (!det) return '—';
+        var q = det.detalhamento.find(function (d) { return d.quesitoId === quesitoId; });
+        if (!q) return '—';
+        return q.votos.map(function (v) {
+          var estilo = v.descartada ? 'color:#c0392b;text-decoration:line-through;' : 'color:#1f7a44;font-weight:700;';
+          return '<span style="' + estilo + '">' + Number(v.nota).toFixed(1) + '</span>';
+        }).join(', ');
+      }
+
+      var head = '<tr><th>Pos.</th><th>Grupo</th><th>Cidade/UF</th>' + quesitos.map(function (q) { return '<th>' + q.nome + '</th>'; }).join('') + '<th>Total</th></tr>';
+
+      var linhas = ranking.map(function (r2, i) {
+        return '<tr><td>' + (i + 1) + 'º</td><td><strong>' + r2.nome + '</strong></td><td>' + (r2.cidade || '') + '/' + r2.estado + '</td>' +
+          quesitos.map(function (q) { return '<td>' + celulaQuesito(r2.id, q.id) + '</td>'; }).join('') +
+          '<td><strong>' + r2.total + '</strong></td></tr>';
+      }).join('');
+
+      var html = '<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><title>Ranking sintético — ' + nomeEvento + '</title>' +
+        '<style>' + ESTILO_PDF_BASE + '</style></head><body>' +
+        '<div class="print-bar"><button onclick="window.print()">Imprimir / Salvar como PDF</button></div>' +
+        '<h1>' + nomeEvento + '</h1>' +
+        '<p class="sub">Ranking oficial — resumo sintético — gerado em ' + new Date().toLocaleString('pt-BR') + '. Notas em verde foram consideradas na apuração; notas em vermelho riscado foram descartadas pela regra do evento.</p>' +
+        '<table>' + head + '<tbody>' + linhas + '</tbody></table>' +
+        '</body></html>';
+
+      abrirJanelaImpressao(html);
+    });
+  });
+
+  document.getElementById('btnPdfAnalitico').addEventListener('click', function () {
+    Promise.all([
+      Api.call('get_official_ranking', { event_id: EVT }),
+      Api.call('get_quesitos', { event_id: EVT }),
+      Api.call('get_received_notes', { event_id: EVT }),
+      Api.call('get_all_corrections', { event_id: EVT }),
+      Api.call('get_status_concurso', { event_id: EVT })
+    ]).then(function (r) {
+      var ranking = r[0].ranking || [];
+      var quesitos = (r[1].quesitos || []).slice().sort(function (a, b) { return a.ordem - b.ordem; });
+      var recebidas = r[2].candidatas || [];
+      var correcoes = r[3].correcoes || [];
+      var nomeEvento = r[4].nomeConcurso || 'Avaliação Digital';
+
+      if (!ranking.length) { Toast.error('Ranking oficial vazio — nada para gerar ainda.'); return; }
+
+      function votosDoGrupo(id) {
+        var g = recebidas.find(function (c) { return c.id === id; });
+        return g ? g.votos : [];
+      }
+
+      function correcaoDoVoto(grupoId, login, quesitoId) {
+        return correcoes.find(function (c) {
+          return c.idCandidata === grupoId && String(c.loginAvaliador).toUpperCase() === String(login).toUpperCase() && c.idQuesito === quesitoId;
+        });
+      }
+
+      var paginas = ranking.map(function (r2, i) {
+        var votos = votosDoGrupo(r2.id);
+
+        var blocos = quesitos.map(function (q) {
+          var votosQuesito = votos.filter(function (v) { return v.quesitoId === q.id; });
+          if (!votosQuesito.length) return '';
+
+          var linhas = votosQuesito.map(function (v) {
+            var corr = correcaoDoVoto(r2.id, v.avaliador, q.id);
+            var assinaturaHtml = v.assinatura
+              ? '<img src="' + v.assinatura + '" style="height:44px;">'
+              : '<span style="color:#999;">—</span>';
+
+            var historico = '';
+            if (corr) {
+              historico = '<div style="font-size:10.5px;color:#666;margin-top:4px;">Questionado: "' + (corr.motivo || '') + '"';
+              if (corr.motivoResposta) historico += '<br>Resposta do avaliador: "' + corr.motivoResposta + '"';
+              if (corr.notaDepois !== undefined && corr.notaDepois !== null && corr.notaDepois !== '' && Number(corr.notaDepois) !== Number(corr.notaAntes)) {
+                historico += '<br><span style="color:#c0392b;">Nota antes: ' + corr.notaAntes + '</span> → <span style="color:#1f7a44;">depois: ' + corr.notaDepois + '</span>';
+              } else if (corr.status !== 'PENDENTE_CORRECAO') {
+                historico += '<br><span style="color:#1f7a44;">Nota confirmada sem alteração.</span>';
+              }
+              historico += '</div>';
+            }
+
+            return '<tr>' +
+              '<td>' + v.avaliadorNome + '</td>' +
+              '<td style="text-align:center;font-weight:700;">' + Number(v.nota).toFixed(1) + '</td>' +
+              '<td style="font-size:11px;">' + (v.justificativa || '—') + historico + '</td>' +
+              '<td style="text-align:center;">' + assinaturaHtml + '</td>' +
+              '</tr>';
+          }).join('');
+
+          return '<h3 style="font-size:13px;margin:16px 0 6px;text-transform:uppercase;">' + q.nome + '</h3>' +
+            '<table><thead><tr><th>Avaliador</th><th>Nota</th><th>Justificativa / histórico</th><th>Assinatura</th></tr></thead><tbody>' + linhas + '</tbody></table>';
+        }).join('');
+
+        return '<div class="page">' +
+          '<h1>' + nomeEvento + '</h1>' +
+          '<p class="sub">Relatório analítico — documento de arquivo para auditoria futura — gerado em ' + new Date().toLocaleString('pt-BR') + '</p>' +
+          '<div style="background:#f7f3e8;border-radius:8px;padding:14px 18px;margin-bottom:10px;">' +
+          '<strong style="font-size:15px;">' + (i + 1) + 'º lugar — ' + r2.nome + '</strong><br>' +
+          '<span style="color:#666;font-size:12.5px;">' + (r2.cidade || '') + '/' + r2.estado + ' · Nota final: <strong>' + r2.total + '</strong>' + (r2.observacao ? ' · ' + r2.observacao : '') + '</span>' +
+          '</div>' +
+          blocos +
+          '</div>';
+      }).join('');
+
+      var html = '<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><title>Relatório analítico — ' + nomeEvento + '</title>' +
+        '<style>' + ESTILO_PDF_BASE + '</style></head><body>' +
+        '<div class="print-bar"><button onclick="window.print()">Imprimir / Salvar como PDF</button></div>' +
+        paginas +
+        '</body></html>';
+
+      abrirJanelaImpressao(html);
+    });
+  });
 
   window.abrirCorrecao = function (candidataId, login, quesitoId, avaliadorNome, candidataNome) {
     document.getElementById('corCandidataId').value = candidataId;
@@ -756,15 +933,15 @@
     Api.call('get_official_ranking', { event_id: EVT }).then(function (res) {
       Api.call('get_quesitos', { event_id: EVT }).then(function (qres) {
         var quesitos = qres.quesitos || [];
-        var head = '<tr><th>Pos.</th><th>Candidata</th><th>Estado</th>' + quesitos.map(function (q) { return '<th>' + q.nome + '</th>'; }).join('') + '<th>Total</th><th>Observação</th></tr>';
+        var head = '<tr><th>Pos.</th><th>Candidata</th><th>Cidade</th><th>Estado</th>' + quesitos.map(function (q) { return '<th>' + q.nome + '</th>'; }).join('') + '<th>Total</th><th>Observação</th></tr>';
         document.getElementById('rankingHead').innerHTML = head;
 
         var body = document.getElementById('rankingBody');
         var ranking = res.ranking || [];
-        if (!ranking.length) { body.innerHTML = '<tr><td colspan="' + (quesitos.length + 5) + '" class="table-empty">Ranking oficial vazio — audite candidatas para vê-las aqui.</td></tr>'; return; }
+        if (!ranking.length) { body.innerHTML = '<tr><td colspan="' + (quesitos.length + 6) + '" class="table-empty">Ranking oficial vazio — audite candidatas para vê-las aqui.</td></tr>'; return; }
 
         body.innerHTML = ranking.map(function (r, i) {
-          return '<tr><td>' + (i + 1) + '</td><td>' + r.nome + '</td><td>' + r.estado + '</td>' +
+          return '<tr><td>' + (i + 1) + '</td><td>' + r.nome + '</td><td>' + (r.cidade || '') + '</td><td>' + r.estado + '</td>' +
             quesitos.map(function (q) { return '<td>' + (r.detalhamento[q.id] || 0) + '</td>'; }).join('') +
             '<td><strong>' + r.total + '</strong></td><td style="font-size:12px;color:var(--ink-faint);">' + (r.observacao || '') + '</td></tr>';
         }).join('');
@@ -811,7 +988,7 @@
         }
         comparacao += '</div>';
 
-        return '<tr><td>' + c.idCandidata + '</td><td>' + c.nomeAvaliador + '</td><td>' + nomeQuesito(c.idQuesito) + '</td><td colspan="2">' + comparacao + '</td><td>' + (statusBadgeMap[c.status] || c.status) + respostaInfo + '</td><td>' + acao + '</td></tr>';
+        return '<tr><td>' + (mapaCandidatas[c.idCandidata] || c.idCandidata) + '</td><td>' + c.nomeAvaliador + '</td><td>' + nomeQuesito(c.idQuesito) + '</td><td colspan="2">' + comparacao + '</td><td>' + (statusBadgeMap[c.status] || c.status) + respostaInfo + '</td><td>' + acao + '</td></tr>';
       }).join('');
     });
   }

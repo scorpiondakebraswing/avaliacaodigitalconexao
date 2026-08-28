@@ -70,7 +70,6 @@
             <div class="card__head">
               <div>
                 <h2 class="card__title" id="candidataNome">—</h2>
-                <p class="card__desc" id="candidataEstado">—</p>
               </div>
               <span class="badge badge-active" id="statusPill"><span class="badge-dot"></span>Em avaliação</span>
             </div>
@@ -101,12 +100,12 @@
   </div>
 </div>
 
-<script src="assets/js/config.js?v=21"></script>
-<script src="assets/js/mock-data.js?v=21"></script>
-<script src="assets/js/api.js?v=21"></script>
-<script src="assets/js/session.js?v=21"></script>
-<script src="assets/js/toast.js?v=21"></script>
-<script src="assets/js/shell.js?v=21"></script>
+<script src="assets/js/config.js?v=22"></script>
+<script src="assets/js/mock-data.js?v=22"></script>
+<script src="assets/js/api.js?v=22"></script>
+<script src="assets/js/session.js?v=22"></script>
+<script src="assets/js/toast.js?v=22"></script>
+<script src="assets/js/shell.js?v=22"></script>
 <script>
   var session = Session.require(['avaliador']);
   if (session) {
@@ -182,7 +181,6 @@
       formBlock.style.display = 'block';
 
       document.getElementById('candidataNome').textContent = res.candidata.nome;
-      document.getElementById('candidataEstado').textContent = res.candidata.estado;
       candidataAtual = res.candidata;
 
       var candidataMudou = candidataAtivaId !== res.candidata.id;

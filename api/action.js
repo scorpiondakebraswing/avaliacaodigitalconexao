@@ -436,7 +436,7 @@ async function getReceivedNotes(body) {
   return {
     success: true,
     candidatas: candidatas.map((c) => ({
-      id: c.id, nome: c.nome, cidade: c.cidade, estado: c.estado,
+      id: c.id, nome: c.nome, cidade: c.cidade, estado: c.estado, statusAuditoria: c.status_auditoria,
       votos: votos.filter((v) => v.candidata_id === c.id)
         .map((v) => ({ avaliador: v.login, avaliadorNome: v.avaliador_nome, quesitoId: v.quesito_id, nota: v.nota, justificativa: v.justificativa, assinatura: v.assinatura }))
     }))

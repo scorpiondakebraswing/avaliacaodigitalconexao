@@ -226,7 +226,7 @@ var Api = {
         return {
           success: true,
           candidatas: evento.candidatas.map(function (c) {
-            return { id: c.id, nome: c.nome, cidade: c.cidade, estado: c.estado, votos: evento.votos.filter(function (v) { return v.candidataId === c.id; }) };
+            return { id: c.id, nome: c.nome, cidade: c.cidade, estado: c.estado, statusAuditoria: c.statusAuditoria, votos: evento.votos.filter(function (v) { return v.candidataId === c.id; }) };
           })
         };
       }
