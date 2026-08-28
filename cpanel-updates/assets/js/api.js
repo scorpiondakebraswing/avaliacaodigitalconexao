@@ -265,9 +265,9 @@ var Api = {
 
       case "request_correction": {
         var jaExiste = evento.correcoes.find(function (c) {
-          return c.idCandidata === p.id_candidata && c.loginAvaliador === p.login_avaliador && c.idQuesito === p.id_quesito && c.status === "PENDENTE_CORRECAO";
+          return c.idCandidata === p.id_candidata && c.loginAvaliador === p.login_avaliador && c.idQuesito === p.id_quesito;
         });
-        if (jaExiste) return { success: false, message: "Já existe correção pendente para este quesito" };
+        if (jaExiste) return { success: false, message: "Este quesito já foi questionado antes para este avaliador. Cancele o questionamento anterior (só é possível antes do avaliador responder) para questionar de novo." };
 
         var votoOriginal = evento.votos.find(function (v) { return v.candidataId === p.id_candidata && v.avaliador === p.login_avaliador && v.quesitoId === p.id_quesito; });
         if (!votoOriginal) return { success: false, message: "Voto do avaliador não encontrado" };
@@ -334,6 +334,34 @@ var Api = {
         evento.correcoes = evento.correcoes.filter(function (c) { return c.id !== p.id_correcao; });
         MockDB.save(db);
         return { success: true, message: "Correção cancelada" };
+      }
+
+      case "validar_nota_direto": {
+        var jaExisteV = evento.correcoes.find(function (c) {
+          return c.idCandidata === p.id_candidata && c.loginAvaliador === p.login_avaliador && c.idQuesito === p.id_quesito;
+        });
+        if (jaExisteV) return { success: false, message: "Este quesito já foi questionado antes para este avaliador." };
+
+        var votoAlvo = evento.votos.find(function (v) { return v.candidataId === p.id_candidata && v.avaliador === p.login_avaliador && v.quesitoId === p.id_quesito; });
+        if (!votoAlvo) return { success: false, message: "Voto não encontrado" };
+
+        evento.correcoes.push({
+          id: "cor-" + Date.now(),
+          idCandidata: p.id_candidata,
+          loginAvaliador: p.login_avaliador,
+          nomeAvaliador: votoAlvo.avaliadorNome,
+          idQuesito: p.id_quesito,
+          notaAntes: votoAlvo.nota,
+          justificativaAntes: votoAlvo.justificativa,
+          notaDepois: votoAlvo.nota,
+          justificativaDepois: votoAlvo.justificativa,
+          motivo: "Validado diretamente pelo presidente de mesa, sem questionamento.",
+          status: "VALIDADA",
+          questionadaPor: p.usuario
+        });
+        MockDB.log(evento, "VALIDATE_DIRECT", p.usuario, p.perfil, "Nota do quesito " + p.id_quesito + " validada diretamente, sem questionamento");
+        MockDB.save(db);
+        return { success: true, message: "Nota validada com sucesso" };
       }
 
       case "get_logs":

@@ -69,6 +69,7 @@ async function route(action, body) {
     case 'get_apuracao_live': return getScoreboard(body);
 
     case 'request_correction': return requestCorrection(body);
+    case 'validar_nota_direto': return validarNotaDireto(body);
     case 'get_my_pending_corrections': return getMyPendingCorrections(body);
     case 'submit_correction': return submitCorrection(body);
     case 'validate_correction': return validateCorrection(body);
@@ -509,10 +510,10 @@ async function requestCorrection(body) {
 
   const loginAvaliador = String(body.login_avaliador || '').toLowerCase();
 
-  const { data: pendentes } = await supabase.from('correcoes').select('*')
+  const { data: existentes } = await supabase.from('correcoes').select('*')
     .eq('evento_id', body.event_id).eq('candidata_id', body.id_candidata)
-    .ilike('login_avaliador', loginAvaliador).eq('quesito_id', body.id_quesito).eq('status', 'PENDENTE_CORRECAO');
-  if (pendentes && pendentes.length) return { success: false, message: 'Já existe correção pendente para este quesito' };
+    .ilike('login_avaliador', loginAvaliador).eq('quesito_id', body.id_quesito);
+  if (existentes && existentes.length) return { success: false, message: 'Este quesito já foi questionado antes para este avaliador. Cancele o questionamento anterior (só é possível antes do avaliador responder) para questionar de novo.' };
 
   const { data: votoOriginal } = await supabase.from('votos').select('*')
     .eq('evento_id', body.event_id).eq('candidata_id', body.id_candidata)
@@ -530,6 +531,37 @@ async function requestCorrection(body) {
 
   await registrarLog(body.event_id, 'REQUEST_CORRECTION', body.usuario, body.perfil, 'Correção solicitada / quesito ' + body.id_quesito);
   return { success: true, message: 'Correção solicitada com sucesso' };
+}
+
+async function validarNotaDireto(body) {
+  const perfil = String(body.perfil || '').toUpperCase();
+  if (!['PRESIDENTE DE MESA', 'ADMIN'].includes(perfil)) return { success: false, message: 'Acesso negado' };
+
+  const loginAvaliador = String(body.login_avaliador || '').toLowerCase();
+
+  const { data: existentes } = await supabase.from('correcoes').select('*')
+    .eq('evento_id', body.event_id).eq('candidata_id', body.id_candidata)
+    .ilike('login_avaliador', loginAvaliador).eq('quesito_id', body.id_quesito);
+  if (existentes && existentes.length) return { success: false, message: 'Este quesito já foi questionado antes para este avaliador.' };
+
+  const { data: voto } = await supabase.from('votos').select('*')
+    .eq('evento_id', body.event_id).eq('candidata_id', body.id_candidata)
+    .ilike('login', loginAvaliador).eq('quesito_id', body.id_quesito).maybeSingle();
+  if (!voto) return { success: false, message: 'Voto não encontrado' };
+
+  const id = 'COR-' + Date.now();
+  const { error } = await supabase.from('correcoes').insert({
+    id, evento_id: body.event_id, candidata_id: body.id_candidata, login_avaliador: loginAvaliador,
+    nome_avaliador: voto.avaliador_nome, quesito_id: body.id_quesito,
+    nota_antes: voto.nota, justificativa_antes: voto.justificativa,
+    nota_depois: voto.nota, justificativa_depois: voto.justificativa,
+    motivo: 'Validado diretamente pelo presidente de mesa, sem questionamento.',
+    status: 'VALIDADA', questionada_por: body.usuario || perfil
+  });
+  if (error) return { success: false, message: 'Erro ao validar: ' + error.message };
+
+  await registrarLog(body.event_id, 'VALIDATE_DIRECT', body.usuario, body.perfil, `Nota do quesito ${body.id_quesito} validada diretamente, sem questionamento`);
+  return { success: true, message: 'Nota validada com sucesso' };
 }
 
 async function getMyPendingCorrections(body) {
