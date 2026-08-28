@@ -139,12 +139,12 @@
   </div>
 </div>
 
-<script src="assets/js/config.js?v=19"></script>
-<script src="assets/js/mock-data.js?v=19"></script>
-<script src="assets/js/api.js?v=19"></script>
-<script src="assets/js/session.js?v=19"></script>
-<script src="assets/js/toast.js?v=19"></script>
-<script src="assets/js/shell.js?v=19"></script>
+<script src="assets/js/config.js?v=21"></script>
+<script src="assets/js/mock-data.js?v=21"></script>
+<script src="assets/js/api.js?v=21"></script>
+<script src="assets/js/session.js?v=21"></script>
+<script src="assets/js/toast.js?v=21"></script>
+<script src="assets/js/shell.js?v=21"></script>
 <script>
   var session = Session.require(['consultor', 'admin']);
   if (session) { Shell.init(session); boot(); }
@@ -340,10 +340,15 @@
     win.document.close();
   }
 
+
   function loadValidadas() {
+    var algumAberto = Object.keys(quesitosDetalheAbertos).some(function (id) { return quesitosDetalheAbertos[id]; });
+    if (algumAberto) return;
+
     Api.call('get_validated_table', { event_id: EVT }).then(function (res) {
       var container = document.getElementById('validadasContainer');
       var candidatas = res.candidatas || [];
+
       if (!candidatas.length) { container.innerHTML = '<div class="empty-state"><h3>Nenhuma candidata auditada ainda</h3></div>'; return; }
       container.innerHTML = candidatas.map(function (c) {
         var blocos = c.detalhamento.map(function (q, qi) {
@@ -366,12 +371,23 @@
         }).join('');
         return '<h3 style="font-size:15px;margin:18px 0 8px;">' + c.nome + ' <span style="color:var(--ink-faint);font-weight:500;">— ' + (c.cidade || '') + '/' + c.estado + '</span></h3>' + blocos;
       }).join('');
+
+      Object.keys(quesitosDetalheAbertos).forEach(function (id) {
+        if (!quesitosDetalheAbertos[id]) return;
+        var el = document.getElementById(id);
+        if (el) el.style.display = 'block';
+      });
     });
   }
 
+  var quesitosDetalheAbertos = {};
+
   window.toggleDetalheQuesito = function (id) {
     var el = document.getElementById(id);
-    if (el) el.style.display = el.style.display === 'none' ? 'block' : 'none';
+    if (!el) return;
+    var abrir = el.style.display === 'none';
+    el.style.display = abrir ? 'block' : 'none';
+    quesitosDetalheAbertos[id] = abrir;
   };
 
   function loadRanking() {
