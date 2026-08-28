@@ -63,6 +63,7 @@ async function route(action, body) {
     case 'get_auditoria_candidates': return getAuditoriaCandidates(body);
     case 'get_candidate_audit': return getCandidateAudit(body);
     case 'finalize_audit': return finalizeAudit(body);
+    case 'reopen_audit': return reopenAudit(body);
     case 'get_validated_table': return getValidatedTable(body);
     case 'get_official_ranking': return getOfficialRanking(body);
     case 'get_scoreboard':
@@ -472,6 +473,20 @@ async function finalizeAudit(body) {
   return { success: true, message: 'Candidata auditada' };
 }
 
+async function reopenAudit(body) {
+  const perfil = String(body.perfil || '').toUpperCase();
+  if (!['PRESIDENTE DE MESA', 'ADMIN'].includes(perfil)) return { success: false, message: 'Acesso negado' };
+
+  const { data: cand } = await supabase.from('evento_candidatas').select('*').eq('evento_id', body.event_id).eq('id', body.id_candidata).maybeSingle();
+  if (!cand) return { success: false, message: 'Candidata não encontrada' };
+
+  const { error } = await supabase.from('evento_candidatas').update({ status_auditoria: 'PENDENTE' }).eq('evento_id', body.event_id).eq('id', body.id_candidata);
+  if (error) return { success: false, message: 'Erro ao reabrir auditoria: ' + error.message };
+
+  await registrarLog(body.event_id, 'REOPEN_AUDIT', body.usuario, body.perfil, `Auditoria de "${cand.nome}" reaberta — a candidata saiu do ranking oficial até ser auditada de novo.`);
+  return { success: true, message: 'Auditoria reaberta. A candidata saiu do ranking oficial até ser auditada novamente.' };
+}
+
 async function getValidatedTable(body) {
   const evento = await getEvento(body.event_id);
   const [quesitos, candidatas] = await Promise.all([getQuesitosParaEvento(body.event_id), getCandidatasDoEvento(body.event_id)]);
@@ -585,8 +600,12 @@ async function submitCorrection(body) {
     const { data: corr } = await supabase.from('correcoes').select('*').eq('id', body.id_correcao).maybeSingle();
     if (!corr) return { success: false, message: 'Correção não encontrada' };
 
+    // nota_depois/justificativa_depois iguais às originais — assim, quando o
+    // presidente validar, a atualização no voto é um "no-op" seguro (não
+    // apaga nada), mesmo que nada tenha mudado de verdade.
     const { error } = await supabase.from('correcoes').update({
-      status: 'CONFIRMADA', motivo_resposta: 'Avaliador confirmou que a nota original está correta.'
+      status: 'CONFIRMADA', motivo_resposta: 'Avaliador confirmou que a nota original está correta.',
+      nota_depois: corr.nota_antes, justificativa_depois: corr.justificativa_antes
     }).eq('id', body.id_correcao);
     if (error) return { success: false, message: 'Erro ao confirmar: ' + error.message };
 

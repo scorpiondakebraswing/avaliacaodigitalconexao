@@ -139,12 +139,12 @@
   </div>
 </div>
 
-<script src="assets/js/config.js?v=18"></script>
-<script src="assets/js/mock-data.js?v=18"></script>
-<script src="assets/js/api.js?v=18"></script>
-<script src="assets/js/session.js?v=18"></script>
-<script src="assets/js/toast.js?v=18"></script>
-<script src="assets/js/shell.js?v=18"></script>
+<script src="assets/js/config.js?v=19"></script>
+<script src="assets/js/mock-data.js?v=19"></script>
+<script src="assets/js/api.js?v=19"></script>
+<script src="assets/js/session.js?v=19"></script>
+<script src="assets/js/toast.js?v=19"></script>
+<script src="assets/js/shell.js?v=19"></script>
 <script>
   var session = Session.require(['consultor', 'admin']);
   if (session) { Shell.init(session); boot(); }
@@ -346,18 +346,33 @@
       var candidatas = res.candidatas || [];
       if (!candidatas.length) { container.innerHTML = '<div class="empty-state"><h3>Nenhuma candidata auditada ainda</h3></div>'; return; }
       container.innerHTML = candidatas.map(function (c) {
-        var blocos = c.detalhamento.map(function (q) {
+        var blocos = c.detalhamento.map(function (q, qi) {
+          var soma = q.votos.filter(function (v) { return !v.descartada; }).reduce(function (acc, v) { return acc + Number(v.nota); }, 0);
+          var detalheId = 'detalheQuesito-' + c.id + '-' + qi;
           var rows = q.votos.map(function (v) {
             var cor = v.descartada ? 'var(--coral)' : 'var(--green-ok)';
             var estilo = v.descartada ? 'color:' + cor + ';text-decoration:line-through;opacity:.8;' : 'color:' + cor + ';font-weight:600;';
             return '<tr><td>' + v.avaliador + '</td><td style="' + estilo + '">' + Number(v.nota).toFixed(1) + (v.descartada ? ' (descartada)' : '') + '</td></tr>';
           }).join('');
-          return '<div style="margin-bottom:10px;"><strong style="font-size:12.5px;">' + q.quesito + '</strong><div class="table-wrap"><table><tbody>' + rows + '</tbody></table></div></div>';
+          return '<div style="margin-bottom:8px;border-bottom:1px solid var(--app-border);padding-bottom:8px;">' +
+            '<div style="display:flex;justify-content:space-between;align-items:center;cursor:pointer;" onclick="toggleDetalheQuesito(\'' + detalheId + '\')">' +
+            '<span style="font-size:13px;font-weight:600;text-decoration:underline dotted;">' + q.quesito + '</span>' +
+            '<strong style="font-size:14px;">' + soma.toFixed(1) + '</strong>' +
+            '</div>' +
+            '<div id="' + detalheId + '" style="display:none;margin-top:8px;">' +
+            '<div class="table-wrap"><table><tbody>' + rows + '</tbody></table></div>' +
+            '</div>' +
+            '</div>';
         }).join('');
         return '<h3 style="font-size:15px;margin:18px 0 8px;">' + c.nome + ' <span style="color:var(--ink-faint);font-weight:500;">— ' + (c.cidade || '') + '/' + c.estado + '</span></h3>' + blocos;
       }).join('');
     });
   }
+
+  window.toggleDetalheQuesito = function (id) {
+    var el = document.getElementById(id);
+    if (el) el.style.display = el.style.display === 'none' ? 'block' : 'none';
+  };
 
   function loadRanking() {
     Api.call('get_official_ranking', { event_id: EVT }).then(function (res) {

@@ -245,6 +245,15 @@ var Api = {
         return { success: true, message: "Candidata auditada" };
       }
 
+      case "reopen_audit": {
+        var caR = evento.candidatas.find(function (x) { return x.id === p.id_candidata; });
+        if (!caR) return { success: false, message: "Candidata não encontrada" };
+        caR.statusAuditoria = "PENDENTE";
+        MockDB.log(evento, "REOPEN_AUDIT", p.usuario, p.perfil, 'Auditoria de "' + caR.nome + '" reaberta — a candidata saiu do ranking oficial até ser auditada de novo.');
+        MockDB.save(db);
+        return { success: true, message: "Auditoria reaberta. A candidata saiu do ranking oficial até ser auditada novamente." };
+      }
+
       case "get_validated_table": {
         var quesitosVT = MockDB.getQuesitosParaEvento(db, evento.id);
         return {
@@ -305,6 +314,8 @@ var Api = {
         if (p.tipo === "confirmar") {
           corr.status = "CONFIRMADA";
           corr.motivoResposta = "Avaliador confirmou que a nota original está correta.";
+          corr.notaDepois = corr.notaAntes;
+          corr.justificativaDepois = corr.justificativaAntes;
           MockDB.log(evento, "CONFIRM_CORRECTION", p.usuario, p.perfil, "Avaliador confirmou nota original do quesito " + corr.idQuesito);
           MockDB.save(db);
           return { success: true, message: "Confirmado — a nota original permanece." };
