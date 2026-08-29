@@ -9,7 +9,8 @@
 <style>
   :root{
     --bg-deep:#0e2f2a; --bg-mid:#1f5b4d; --bg-mid-2:#2c7a5f;
-    --paper:#faf5e7; --gold:#e3a53d; --gold-deep:#c6862a; --coral:#e2604a;
+    --paper:#faf5e7; --gold:#e3a53d; --gold-deep:#c6862a; --coral:#e2604a; --green-ok:#3fae70;
+    --silver:#c9d3da; --bronze:#cd8a4d;
   }
   *{ box-sizing:border-box; }
   html,body{ margin:0; height:100%; }
@@ -19,136 +20,296 @@
       linear-gradient(160deg, var(--bg-deep) 0%, var(--bg-mid) 55%, var(--bg-mid-2) 100%);
     min-height:100%;
     display:flex; flex-direction:column; align-items:center;
-    padding:40px 24px 90px;
+    padding:32px 20px 100px;
     overflow-x:hidden;
   }
 
   .kicker{
-    font-family:'JetBrains Mono', monospace; font-size:14px; letter-spacing:0.2em;
-    text-transform:uppercase; color:var(--gold); margin-bottom:6px;
+    font-family:'JetBrains Mono', monospace; font-size:13px; letter-spacing:0.2em;
+    text-transform:uppercase; color:var(--gold); margin-bottom:4px;
   }
-
   h1{
-    font-family:'Baloo 2', sans-serif; font-weight:800; font-size:clamp(28px, 4vw, 46px);
-    margin:0 0 36px; text-align:center;
+    font-family:'Baloo 2', sans-serif; font-weight:800; font-size:clamp(24px, 3.4vw, 40px);
+    margin:0 0 28px; text-align:center;
   }
 
-  .board{
-    width:min(920px, 94vw);
-    display:flex; flex-direction:column; gap:14px;
+  .stage{ width:min(920px, 94vw); }
+
+  /* ===================== MODO AUTOMÁTICO ===================== */
+  .auto-section{ margin-bottom:28px; }
+  .auto-section__title{
+    font-family:'Baloo 2', sans-serif; font-size:16px; font-weight:700;
+    color:rgba(250,245,231,0.7); text-transform:uppercase; letter-spacing:0.06em;
+    margin-bottom:12px; display:flex; align-items:center; gap:8px;
   }
 
-  .row{
-    display:flex; align-items:center; gap:18px;
-    background:rgba(0,0,0,0.18);
-    border:1px solid rgba(255,255,255,0.08);
-    border-radius:16px;
-    padding:16px 22px;
-    opacity:0;
-    transform:translateY(14px);
-    transition:opacity .5s ease, transform .5s ease, background .3s ease;
+  .auto-card{
+    background:rgba(0,0,0,0.18); border:1px solid rgba(255,255,255,0.08);
+    border-radius:14px; padding:16px 20px; margin-bottom:10px;
+    display:flex; align-items:center; justify-content:space-between; gap:16px; flex-wrap:wrap;
+    animation:fadeIn .5s ease;
+  }
+  .auto-card.is-ativa{
+    background:linear-gradient(90deg, rgba(227,165,61,0.22), rgba(0,0,0,0.18));
+    border-color:rgba(227,165,61,0.5);
+    animation:pulseAtiva 2.2s ease-in-out infinite;
+  }
+  .auto-card.is-desq{ background:rgba(226,96,74,0.16); border-color:rgba(226,96,74,0.4); }
+
+  .auto-card__nome{ font-family:'Baloo 2', sans-serif; font-weight:700; font-size:18px; }
+  .auto-card__sub{ font-size:12.5px; color:rgba(250,245,231,0.55); margin-top:2px; }
+  .auto-card__destaque{ display:flex; gap:6px; flex-wrap:wrap; justify-content:flex-end; }
+  .destaque-chip{
+    background:rgba(63,174,112,0.22); border:1px solid rgba(63,174,112,0.5);
+    color:#a8f0c6; font-size:12px; font-weight:700; padding:5px 12px; border-radius:999px;
+  }
+  .desq-chip{ background:rgba(226,96,74,0.25); border:1px solid rgba(226,96,74,0.6); color:#ffd9d0; font-size:12px; font-weight:700; padding:5px 12px; border-radius:999px; }
+
+  .pendente-list{ display:flex; flex-wrap:wrap; gap:8px; }
+  .pendente-chip{
+    background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.12);
+    color:rgba(250,245,231,0.75); font-size:13px; padding:8px 14px; border-radius:10px;
   }
 
-  .row.is-revealed{ opacity:1; transform:translateY(0); }
-  .row.is-first{ background:linear-gradient(90deg, rgba(227,165,61,0.28), rgba(0,0,0,0.18)); border-color:rgba(227,165,61,0.45); }
+  @keyframes fadeIn{ from{ opacity:0; transform:translateY(6px);} to{ opacity:1; transform:translateY(0);} }
+  @keyframes pulseAtiva{ 0%,100%{ box-shadow:0 0 0 0 rgba(227,165,61,0.25);} 50%{ box-shadow:0 0 0 10px rgba(227,165,61,0);} }
 
-  .row__pos{
-    font-family:'Baloo 2', sans-serif; font-weight:800; font-size:26px;
-    width:52px; text-align:center; color:var(--gold); flex-shrink:0;
+  .empty{ text-align:center; color:rgba(250,245,231,0.5); padding:20px; font-size:14px; }
+
+  /* ===================== MODO REVELAÇÃO ===================== */
+  .reveal-row{
+    background:rgba(0,0,0,0.18); border:1px solid rgba(255,255,255,0.08);
+    border-radius:16px; padding:16px 22px; margin-bottom:12px;
+    opacity:0; transform:translateY(14px);
+    transition:opacity .5s ease, transform .5s ease, background .3s ease, border-color .3s ease;
+    max-height:1000px;
   }
+  .reveal-row.is-revealed{ opacity:1; transform:translateY(0); }
 
-  .row__name{ flex:1; min-width:0; }
-  .row__name strong{ display:block; font-size:18px; }
-  .row__name span{ font-size:12.5px; color:rgba(250,245,231,0.6); }
+  .reveal-row__head{ display:flex; align-items:center; gap:16px; }
+  .reveal-row__pos{ font-family:'Baloo 2', sans-serif; font-weight:800; font-size:26px; width:56px; text-align:center; color:var(--gold); flex-shrink:0; }
+  .reveal-row__nome{ flex:1; min-width:0; }
+  .reveal-row__nome strong{ display:block; font-size:19px; }
+  .reveal-row__nome span{ font-size:12.5px; color:rgba(250,245,231,0.6); }
+  .reveal-row__total{ font-family:'JetBrains Mono', monospace; font-weight:700; font-size:22px; flex-shrink:0; }
 
-  .row__total{
-    font-family:'JetBrains Mono', monospace; font-weight:600; font-size:20px;
-    color:var(--paper); flex-shrink:0;
+  .reveal-row.top1{ background:linear-gradient(90deg, rgba(227,165,61,0.32), rgba(0,0,0,0.18)); border-color:var(--gold); }
+  .reveal-row.top1 .reveal-row__pos, .reveal-row.top1 .reveal-row__total{ color:var(--gold); }
+  .reveal-row.top2{ background:linear-gradient(90deg, rgba(201,211,218,0.24), rgba(0,0,0,0.18)); border-color:var(--silver); }
+  .reveal-row.top2 .reveal-row__pos, .reveal-row.top2 .reveal-row__total{ color:var(--silver); }
+  .reveal-row.top3{ background:linear-gradient(90deg, rgba(205,138,77,0.26), rgba(0,0,0,0.18)); border-color:var(--bronze); }
+  .reveal-row.top3 .reveal-row__pos, .reveal-row.top3 .reveal-row__total{ color:var(--bronze); }
+  .reveal-row.top5:not(.top1):not(.top2):not(.top3) .reveal-row__nome strong{ text-shadow:0 0 14px rgba(227,165,61,0.4); }
+
+  .reveal-row.is-desq{ background:rgba(226,96,74,0.18); border-color:rgba(226,96,74,0.5); }
+  .reveal-row.is-desq .reveal-row__pos{ color:var(--coral); }
+
+  .reveal-detalhe{
+    max-height:0; overflow:hidden; opacity:0;
+    transition:max-height .45s ease, opacity .35s ease, margin-top .45s ease;
+    margin-top:0;
   }
+  .reveal-row.is-aberta .reveal-detalhe{ max-height:400px; opacity:1; margin-top:16px; }
 
-  .row.is-hidden .row__name strong{ color:rgba(250,245,231,0.35); }
-  .row.is-hidden .row__total{ color:rgba(250,245,231,0.25); }
+  .reveal-detalhe__grid{ display:grid; grid-template-columns:repeat(auto-fit, minmax(150px,1fr)); gap:10px; }
+  .reveal-detalhe__item{ background:rgba(255,255,255,0.06); border-radius:10px; padding:10px 14px; }
+  .reveal-detalhe__item .q-nome{ font-size:11px; text-transform:uppercase; letter-spacing:0.04em; color:rgba(250,245,231,0.6); }
+  .reveal-detalhe__item .q-nota{ font-family:'JetBrains Mono', monospace; font-weight:700; font-size:18px; margin-top:2px; }
 
-  .empty{
-    text-align:center; color:rgba(250,245,231,0.6); margin-top:60px; font-size:16px;
+  .reveal-empate-badge{
+    display:inline-block; background:rgba(227,165,61,0.25); border:1px solid rgba(227,165,61,0.5);
+    color:var(--gold); font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:0.05em;
+    padding:4px 10px; border-radius:999px; margin-bottom:10px;
   }
+  .reveal-desempate-nota{ font-size:12px; color:rgba(250,245,231,0.65); margin-top:10px; }
 
+  /* ===================== CONTROLES (equipe) ===================== */
   .controls{
     position:fixed; bottom:16px; right:16px;
-    display:flex; gap:8px;
-    opacity:0.55;
-    transition:opacity .2s ease;
+    display:flex; gap:8px; flex-wrap:wrap; justify-content:flex-end; max-width:90vw;
+    opacity:0.55; transition:opacity .2s ease;
   }
   .controls:hover{ opacity:1; }
-
   .controls button{
     font-family:'Inter', sans-serif; font-size:12px; font-weight:600;
     border:1px solid rgba(255,255,255,0.25); background:rgba(0,0,0,0.35); color:var(--paper);
     padding:8px 12px; border-radius:8px; cursor:pointer;
   }
   .controls button:hover{ background:rgba(0,0,0,0.55); }
+  .controls button.is-active{ background:var(--gold); color:#20120a; border-color:var(--gold); }
 </style>
 </head>
 <body>
 
   <p class="kicker">Conexão Junina · Avaliação Digital 2.0</p>
-  <h1 id="eventoTitulo">Ranking Oficial</h1>
+  <h1 id="eventoTitulo">Acompanhamento do Concurso</h1>
 
-  <div class="board" id="board"></div>
-  <p class="empty" id="emptyState" style="display:none;">O ranking oficial ainda não está disponível.</p>
+  <div class="stage">
+    <div id="viewAutomatico" style="display:none;"></div>
+    <div id="viewRevelacao"></div>
+  </div>
 
   <div class="controls">
+    <button id="btnModoAutomatico">🔴 Ativar modo automático</button>
     <button id="btnAvancar">Avançar revelação ▸</button>
     <button id="btnReiniciar">Reiniciar</button>
   </div>
 
-<script src="assets/js/config.js?v=23"></script>
-<script src="assets/js/mock-data.js?v=23"></script>
-<script src="assets/js/api.js?v=23"></script>
+<script src="assets/js/config.js?v=24"></script>
+<script src="assets/js/mock-data.js?v=24"></script>
+<script src="assets/js/api.js?v=24"></script>
 <script>
-  // O evento vem do link (?evento=ID) — assim cada evento tem seu próprio
-  // link de telão, gerado pelo admin. Se não vier na URL, cai no evento
-  // padrão do config.js (só pra não quebrar links antigos).
   var params = new URLSearchParams(window.location.search);
   var EVT = params.get('evento') || window.APP_CONFIG.EVENT_ID;
-  var lastRanking = [];
+
+  var modoAutomatico = false;
+  var ultimoDados = null;
 
   function load() {
     Api.call('get_telao_notes', { event_id: EVT }).then(function (res) {
-      lastRanking = res.ranking || [];
-      render(res.revealIndex || 0);
+      ultimoDados = res;
+      document.getElementById('eventoTitulo').textContent = res.nomeEvento || 'Acompanhamento do Concurso';
+      if (modoAutomatico) renderAutomatico(res);
+      else renderRevelacao(res);
     });
   }
 
-  function render(revealIndex) {
-    var board = document.getElementById('board');
-    var empty = document.getElementById('emptyState');
+  /* ===================== MODO AUTOMÁTICO ===================== */
 
-    if (!lastRanking.length) {
-      board.innerHTML = '';
-      empty.style.display = 'block';
+  function renderAutomatico(res) {
+    var host = document.getElementById('viewAutomatico');
+    var partes = [];
+
+    if (res.desqualificados && res.desqualificados.length) {
+      partes.push('<div class="auto-section"><div class="auto-section__title">⚠ Desistentes / Desclassificados</div>' +
+        res.desqualificados.map(function (d) {
+          return '<div class="auto-card is-desq"><div><div class="auto-card__nome">' + d.nome + '</div>' +
+            '<div class="auto-card__sub">' + (d.cidade || '') + '/' + d.estado + '</div></div>' +
+            '<span class="desq-chip">' + (d.flag === 'DESISTENTE' ? 'Desistente' : 'Desclassificado') + '</span></div>';
+        }).join('') + '</div>');
+    }
+
+    partes.push('<div class="auto-section"><div class="auto-section__title">🎤 Se apresentando agora</div>' +
+      (res.ativa ? montarCardAtivo(res.ativa) : '<p class="empty">Nenhum grupo se apresentando no momento.</p>') + '</div>');
+
+    partes.push('<div class="auto-section"><div class="auto-section__title">✔ Já se apresentaram</div>' +
+      (res.jaApresentadas && res.jaApresentadas.length ? res.jaApresentadas.map(montarCardApresentado).join('') : '<p class="empty">Ninguém se apresentou ainda.</p>') + '</div>');
+
+    if (res.pendentes && res.pendentes.length) {
+      partes.push('<div class="auto-section"><div class="auto-section__title">⏳ Ainda vão se apresentar</div>' +
+        '<div class="pendente-list">' + res.pendentes.map(function (p) { return '<span class="pendente-chip">' + p.nome + '</span>'; }).join('') + '</div></div>');
+    }
+
+    host.innerHTML = partes.join('');
+  }
+
+  function montarCardAtivo(c) {
+    var chips = c.destaqueQuesitos.length
+      ? c.destaqueQuesitos.map(function (q) { return '<span class="destaque-chip">★ ' + q + '</span>'; }).join('')
+      : '<span style="color:rgba(250,245,231,0.5);font-size:12.5px;">Aguardando notas...</span>';
+    return '<div class="auto-card is-ativa"><div><div class="auto-card__nome">' + c.nome + '</div>' +
+      '<div class="auto-card__sub">' + (c.cidade || '') + '/' + c.estado + '</div></div>' +
+      '<div class="auto-card__destaque">' + chips + '</div></div>';
+  }
+
+  function montarCardApresentado(c) {
+    var chips = c.destaqueQuesitos.length
+      ? c.destaqueQuesitos.map(function (q) { return '<span class="destaque-chip">★ ' + q + '</span>'; }).join('')
+      : '<span style="color:rgba(250,245,231,0.4);font-size:12px;">Sem notas ainda</span>';
+    return '<div class="auto-card"><div><div class="auto-card__nome">' + c.nome + '</div>' +
+      '<div class="auto-card__sub">' + (c.cidade || '') + '/' + c.estado + '</div></div>' +
+      '<div class="auto-card__destaque">' + chips + '</div></div>';
+  }
+
+  /* ===================== MODO REVELAÇÃO ===================== */
+
+  function montarSequenciaRevelacao(res) {
+    var sequencia = (res.desqualificados || []).map(function (d) {
+      return { tipo: 'desqualificado', dados: d };
+    });
+
+    var posicaoAtual = 1;
+    var gruposComPosicao = (res.gruposRevelacao || []).map(function (grupo) {
+      var pos = posicaoAtual;
+      posicaoAtual += grupo.length;
+      return { tipo: 'ranking', posicao: pos, membros: grupo };
+    });
+
+    // revela do pior colocado pro melhor — efeito clássico de contagem regressiva
+    return sequencia.concat(gruposComPosicao.slice().reverse());
+  }
+
+  function renderRevelacao(res) {
+    var host = document.getElementById('viewRevelacao');
+    var sequencia = montarSequenciaRevelacao(res);
+
+    if (!sequencia.length) {
+      host.innerHTML = '<p class="empty">O ranking oficial ainda não está disponível.</p>';
       return;
     }
-    empty.style.display = 'none';
 
-    // reveal from last place up to first place, classic countdown style
-    var total = lastRanking.length;
+    var revealIndex = res.revealIndex || 0;
 
-    board.innerHTML = lastRanking.map(function (r, i) {
-      var posFromLast = total - i; // 1 = last place
-      var revealed = posFromLast <= revealIndex;
-      var isFirst = i === 0;
-      return '<div class="row ' + (revealed ? 'is-revealed' : 'is-hidden') + (revealed && isFirst ? ' is-first' : '') + '">' +
-        '<div class="row__pos">' + (i + 1) + 'º</div>' +
-        '<div class="row__name"><strong>' + (revealed ? r.nome : '?????') + '</strong><span>' + (revealed ? r.estado : '') + '</span></div>' +
-        '<div class="row__total">' + (revealed ? r.total : '—') + '</div>' +
+    host.innerHTML = sequencia.map(function (passo, i) {
+      var revelado = i < revealIndex;
+      var aberta = i === revealIndex - 1; // o mais recente revelado fica "aberto"
+
+      if (passo.tipo === 'desqualificado') {
+        var d = passo.dados;
+        return '<div class="reveal-row is-desq' + (revelado ? ' is-revealed' : '') + '">' +
+          '<div class="reveal-row__head">' +
+          '<div class="reveal-row__pos">⚠</div>' +
+          '<div class="reveal-row__nome"><strong>' + (revelado ? d.nome : '?????') + '</strong>' +
+          '<span>' + (revelado ? ((d.cidade || '') + '/' + d.estado + ' · ' + (d.flag === 'DESISTENTE' ? 'Desistente' : 'Desclassificado')) : '') + '</span></div>' +
+          '</div></div>';
+      }
+
+      var posTotal = sequencia.length; // não usado, só clareza
+      var classePosicao = passo.posicao === 1 ? 'top1' : passo.posicao === 2 ? 'top2' : passo.posicao === 3 ? 'top3' : (passo.posicao <= 5 ? 'top5' : '');
+      var membros = passo.membros;
+      var empatados = membros.length > 1;
+
+      var blocosMembros = membros.map(function (m) {
+        var quesitosHtml = res.quesitos.map(function (q) {
+          return '<div class="reveal-detalhe__item"><div class="q-nome">' + q.nome + '</div><div class="q-nota">' + (m.detalhamento[q.id] || 0) + '</div></div>';
+        }).join('');
+
+        return '<div style="' + (empatados ? 'margin-bottom:14px;padding-bottom:14px;border-bottom:1px dashed rgba(255,255,255,0.15);' : '') + '">' +
+          '<div class="reveal-row__head">' +
+          '<div class="reveal-row__pos">' + passo.posicao + 'º</div>' +
+          '<div class="reveal-row__nome"><strong>' + (revelado ? m.nome : '?????') + '</strong><span>' + (revelado ? ((m.cidade || '') + '/' + m.estado) : '') + '</span></div>' +
+          '<div class="reveal-row__total">' + (revelado ? m.total : '—') + '</div>' +
+          '</div>' +
+          (revelado ? '<div class="reveal-detalhe"><div class="reveal-detalhe__grid">' + quesitosHtml + '</div>' +
+            (m.observacao && m.observacao.indexOf('Desempate aplicado') === 0 ? '<p class="reveal-desempate-nota">⚖ ' + m.observacao + '</p>' : '') +
+            '</div>' : '') +
+          '</div>';
+      }).join('');
+
+      return '<div class="reveal-row ' + classePosicao + (revelado ? ' is-revealed' : '') + (aberta ? ' is-aberta' : '') + '">' +
+        (empatados && revelado ? '<div class="reveal-empate-badge">🤝 Empate — ' + membros.length + ' grupos na ' + passo.posicao + 'ª posição</div>' : '') +
+        blocosMembros +
         '</div>';
     }).join('');
   }
 
+  /* ===================== CONTROLES ===================== */
+
+  document.getElementById('btnModoAutomatico').addEventListener('click', function () {
+    modoAutomatico = !modoAutomatico;
+    document.getElementById('btnModoAutomatico').classList.toggle('is-active', modoAutomatico);
+    document.getElementById('btnModoAutomatico').textContent = modoAutomatico ? '🔴 Modo automático ativo' : '⚪ Ativar modo automático';
+    document.getElementById('viewAutomatico').style.display = modoAutomatico ? 'block' : 'none';
+    document.getElementById('viewRevelacao').style.display = modoAutomatico ? 'none' : 'block';
+    document.getElementById('btnAvancar').style.display = modoAutomatico ? 'none' : 'inline-block';
+    document.getElementById('btnReiniciar').style.display = modoAutomatico ? 'none' : 'inline-block';
+    if (ultimoDados) { if (modoAutomatico) renderAutomatico(ultimoDados); else renderRevelacao(ultimoDados); }
+  });
+
   document.getElementById('btnAvancar').addEventListener('click', function () {
     Api.call('get_telao_reveal_state', { event_id: EVT }).then(function (res) {
-      var next = (res.revealIndex || 0) + 1;
+      var total = ultimoDados ? ultimoDados.totalPassosRevelacao : 999;
+      var next = Math.min((res.revealIndex || 0) + 1, total);
       Api.call('set_telao_reveal_index', { event_id: EVT, index: next }).then(function () { load(); });
     });
   });
@@ -157,6 +318,8 @@
     Api.call('set_telao_reveal_index', { event_id: EVT, index: 0 }).then(function () { load(); });
   });
 
+  // Começa no modo revelação manual (o padrão de sempre) — o botão liga
+  // o modo automático quando o presidente/operador quiser.
   load();
   setInterval(load, 4000);
 </script>

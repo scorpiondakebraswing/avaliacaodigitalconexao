@@ -8,7 +8,7 @@
 // =============================================================
 
 const supabase = require('../lib/supabaseAdmin');
-const { REGRAS_PADRAO, gerarValoresNota, marcarDescartes, gerarRanking } = require('../lib/regras');
+const { REGRAS_PADRAO, gerarValoresNota, somaComDescarte, marcarDescartes, gerarRanking } = require('../lib/regras');
 const { hashSenha, verificarSenha } = require('../lib/auth');
 
 module.exports = async function handler(req, res) {
@@ -873,10 +873,78 @@ async function finalizarConcurso(body) {
 
 /* ============================= telão ============================= */
 
+// Soma por quesito (com descarte) de UMA candidata específica, e quais
+// quesitos ela está se destacando (maior soma) — usado tanto pro grupo
+// que está se apresentando agora quanto pros que já se apresentaram, no
+// modo automático do telão.
+function calcularDestaqueQuesitos(candidataId, votos, quesitos, regraDescarte) {
+  const detalhamento = {};
+  quesitos.forEach((q) => {
+    const notas = votos.filter((v) => v.candidata_id === candidataId && v.quesito_id === q.id).map((v) => Number(v.nota));
+    detalhamento[q.id] = notas.length ? somaComDescarte(notas, regraDescarte) : 0;
+  });
+  const valores = Object.values(detalhamento);
+  const total = valores.reduce((a, b) => a + b, 0);
+  const max = valores.length ? Math.max(...valores) : 0;
+  const destaqueQuesitos = max > 0 ? quesitos.filter((q) => detalhamento[q.id] === max).map((q) => q.nome) : [];
+  return { total, detalhamento, destaqueQuesitos };
+}
+
+// Agrupa o ranking oficial em "passos de revelação" — candidatas
+// realmente empatadas (mesmo total E mesma nota em cada quesito, ou
+// seja, nenhum critério de desempate conseguiu separar) entram juntas
+// no mesmo passo, pra serem reveladas ao mesmo tempo no telão.
+function agruparEmpates(ranking, quesitos) {
+  const grupos = [];
+  ranking.forEach((r) => {
+    const ultimo = grupos[grupos.length - 1];
+    const empatado = ultimo && ultimo[0].total === r.total &&
+      quesitos.every((q) => Number(ultimo[0].detalhamento[q.id] || 0) === Number(r.detalhamento[q.id] || 0));
+    if (empatado) ultimo.push(r);
+    else grupos.push([r]);
+  });
+  return grupos;
+}
+
 async function getTelaoNotes(body) {
   const evento = await getEvento(body.event_id);
-  const rankingRes = await getOfficialRanking(body);
-  return { success: true, ranking: rankingRes.ranking, revealIndex: evento.reveal_index || 0 };
+  const regras = evento.regras || REGRAS_PADRAO;
+
+  const [quesitos, todasCandidatas, votos, completas] = await Promise.all([
+    getQuesitosParaEvento(body.event_id),
+    getCandidatasDoEvento(body.event_id),
+    getVotosDoEvento(body.event_id),
+    getCandidatasCompletas(body.event_id)
+  ]);
+
+  const rankingOficial = gerarRanking(completas, votos, quesitos, regras);
+  const gruposRevelacao = agruparEmpates(rankingOficial, quesitos);
+
+  const desqualificados = todasCandidatas
+    .filter((c) => c.flag_especial === 'DESISTENTE' || c.flag_especial === 'DESCLASSIFICADA')
+    .map((c) => ({ id: c.id, nome: c.nome, cidade: c.cidade, estado: c.estado, flag: c.flag_especial }));
+
+  const pendentes = todasCandidatas
+    .filter((c) => c.status_avaliacao === 'PENDENTE' && !c.flag_especial)
+    .sort((a, b) => a.ordem - b.ordem)
+    .map((c) => ({ id: c.id, nome: c.nome, cidade: c.cidade, estado: c.estado }));
+
+  const candidataAtiva = todasCandidatas.find((c) => c.id === evento.id_ativa);
+  const ativa = candidataAtiva
+    ? { id: candidataAtiva.id, nome: candidataAtiva.nome, cidade: candidataAtiva.cidade, estado: candidataAtiva.estado, ...calcularDestaqueQuesitos(candidataAtiva.id, votos, quesitos, regras.regraDescarte) }
+    : null;
+
+  const jaApresentadas = todasCandidatas
+    .filter((c) => c.status_avaliacao === 'FINALIZADA' && !c.flag_especial)
+    .map((c) => ({ id: c.id, nome: c.nome, cidade: c.cidade, estado: c.estado, ...calcularDestaqueQuesitos(c.id, votos, quesitos, regras.regraDescarte) }));
+
+  return {
+    success: true,
+    quesitos, ativa, pendentes, jaApresentadas, desqualificados,
+    gruposRevelacao, totalPassosRevelacao: desqualificados.length + gruposRevelacao.length,
+    revealIndex: evento.reveal_index || 0,
+    nomeEvento: evento.nome
+  };
 }
 
 async function getTelaoRevealState(body) {

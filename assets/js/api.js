@@ -378,8 +378,52 @@ var Api = {
       case "get_logs":
         return { success: true, logs: evento.logs.slice(0, 100) };
 
-      case "get_telao_notes":
-        return { success: true, ranking: MockDB.computeRanking(evento, true, MockDB.getQuesitosParaEvento(db, evento.id)), revealIndex: evento.config.revealIndex };
+      case "get_telao_notes": {
+        var quesitosT = MockDB.getQuesitosParaEvento(db, evento.id);
+
+        function destaqueQuesitos(candidataId) {
+          var detalhamento = {};
+          quesitosT.forEach(function (q) {
+            var notas = evento.votos.filter(function (v) { return v.candidataId === candidataId && v.quesitoId === q.id; }).map(function (v) { return Number(v.nota); });
+            detalhamento[q.id] = notas.length ? MockDB.somaComDescarte(notas, evento) : 0;
+          });
+          var valores = Object.keys(detalhamento).map(function (k) { return detalhamento[k]; });
+          var total = valores.reduce(function (a, b) { return a + b; }, 0);
+          var max = valores.length ? Math.max.apply(null, valores) : 0;
+          var destaque = max > 0 ? quesitosT.filter(function (q) { return detalhamento[q.id] === max; }).map(function (q) { return q.nome; }) : [];
+          return { total: total, detalhamento: detalhamento, destaqueQuesitos: destaque };
+        }
+
+        var rankingOficial = MockDB.computeRanking(evento, true, quesitosT);
+
+        var grupos = [];
+        rankingOficial.forEach(function (r) {
+          var ultimo = grupos[grupos.length - 1];
+          var empatado = ultimo && ultimo[0].total === r.total && quesitosT.every(function (q) {
+            return Number(ultimo[0].detalhamento[q.id] || 0) === Number(r.detalhamento[q.id] || 0);
+          });
+          if (empatado) ultimo.push(r); else grupos.push([r]);
+        });
+
+        var desqualificados = evento.candidatas.filter(function (c) { return c.flagEspecial === "DESISTENTE" || c.flagEspecial === "DESCLASSIFICADA"; })
+          .map(function (c) { return { id: c.id, nome: c.nome, cidade: c.cidade, estado: c.estado, flag: c.flagEspecial }; });
+
+        var pendentes = evento.candidatas.filter(function (c) { return c.statusAvaliacao === "PENDENTE" && !c.flagEspecial; })
+          .sort(function (a, b) { return a.ordem - b.ordem; })
+          .map(function (c) { return { id: c.id, nome: c.nome, cidade: c.cidade, estado: c.estado }; });
+
+        var candidataAtiva = evento.candidatas.find(function (c) { return c.id === evento.config.idAtiva; });
+        var ativa = candidataAtiva ? Object.assign({ id: candidataAtiva.id, nome: candidataAtiva.nome, cidade: candidataAtiva.cidade, estado: candidataAtiva.estado }, destaqueQuesitos(candidataAtiva.id)) : null;
+
+        var jaApresentadas = evento.candidatas.filter(function (c) { return c.statusAvaliacao === "FINALIZADA" && !c.flagEspecial; })
+          .map(function (c) { return Object.assign({ id: c.id, nome: c.nome, cidade: c.cidade, estado: c.estado }, destaqueQuesitos(c.id)); });
+
+        return {
+          success: true, quesitos: quesitosT, ativa: ativa, pendentes: pendentes, jaApresentadas: jaApresentadas,
+          desqualificados: desqualificados, gruposRevelacao: grupos, totalPassosRevelacao: desqualificados.length + grupos.length,
+          revealIndex: evento.config.revealIndex, nomeEvento: evento.nome
+        };
+      }
 
       case "get_telao_reveal_state":
         return { success: true, revealIndex: evento.config.revealIndex };
