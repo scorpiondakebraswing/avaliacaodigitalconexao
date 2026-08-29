@@ -76,6 +76,29 @@
 
   .empty{ text-align:center; color:rgba(250,245,231,0.5); padding:20px; font-size:14px; }
 
+  .auto-note{
+    text-align:center; font-size:13px; color:rgba(250,245,231,0.55); font-style:italic;
+    margin:-14px 0 24px; max-width:640px; margin-left:auto; margin-right:auto;
+  }
+  .auto-card__destaque-wrap{ display:flex; flex-direction:column; align-items:flex-end; gap:5px; }
+  .auto-card__destaque-label{ font-size:10.5px; text-transform:uppercase; letter-spacing:0.06em; color:rgba(250,245,231,0.45); }
+
+  /* ===================== TELA DE ESPERA (nome do evento em dourado) ===================== */
+  .idle-screen{ display:flex; flex-direction:column; align-items:center; justify-content:center; min-height:50vh; text-align:center; }
+  .idle-title{
+    font-family:'Baloo 2', sans-serif; font-weight:800; font-size:clamp(30px, 5.4vw, 66px);
+    background:linear-gradient(110deg, #c6862a 0%, #fff1cf 22%, #e3a53d 45%, #fff1cf 68%, #c6862a 100%);
+    background-size:300% 100%;
+    -webkit-background-clip:text; background-clip:text; color:transparent;
+    animation:shimmerGold 5s linear infinite;
+    margin:0; line-height:1.15;
+  }
+  .idle-sub{ color:rgba(250,245,231,0.55); font-size:15px; margin-top:16px; letter-spacing:0.03em; }
+  @keyframes shimmerGold{ 0%{ background-position:0% 50%; } 100%{ background-position:300% 50%; } }
+  #viewRevelacao{ position:relative; min-height:50vh; }
+  #idleOverlay{ position:absolute; inset:0; transition:opacity .5s ease; }
+  #idleOverlay.is-hidden{ opacity:0; pointer-events:none; }
+
   /* ===================== MODO REVELAÇÃO ===================== */
   .reveal-row{
     background:rgba(0,0,0,0.18); border:1px solid rgba(255,255,255,0.08);
@@ -85,6 +108,7 @@
     max-height:1000px;
   }
   .reveal-row.is-revealed{ opacity:1; transform:translateY(0); }
+  .reveal-row.sem-transicao, .reveal-row.sem-transicao *{ transition:none !important; animation:none !important; }
 
   .reveal-row__head{ display:flex; align-items:center; gap:16px; }
   .reveal-row__pos{ font-family:'Baloo 2', sans-serif; font-weight:800; font-size:26px; width:56px; text-align:center; color:var(--gold); flex-shrink:0; }
@@ -146,7 +170,13 @@
 
   <div class="stage">
     <div id="viewAutomatico" style="display:none;"></div>
-    <div id="viewRevelacao"></div>
+    <div id="viewRevelacao">
+      <div id="idleOverlay" class="idle-screen">
+        <h1 class="idle-title" id="idleTitulo">Concurso</h1>
+        <p class="idle-sub">Aguardando o início da revelação do ranking...</p>
+      </div>
+      <div id="revelacaoLista"></div>
+    </div>
   </div>
 
   <div class="controls">
@@ -155,9 +185,9 @@
     <button id="btnReiniciar">Reiniciar</button>
   </div>
 
-<script src="assets/js/config.js?v=24"></script>
-<script src="assets/js/mock-data.js?v=24"></script>
-<script src="assets/js/api.js?v=24"></script>
+<script src="assets/js/config.js?v=25"></script>
+<script src="assets/js/mock-data.js?v=25"></script>
+<script src="assets/js/api.js?v=25"></script>
 <script>
   var params = new URLSearchParams(window.location.search);
   var EVT = params.get('evento') || window.APP_CONFIG.EVENT_ID;
@@ -179,6 +209,8 @@
   function renderAutomatico(res) {
     var host = document.getElementById('viewAutomatico');
     var partes = [];
+
+    partes.push('<p class="auto-note">"Destaques do grupo" mostra em qual(is) quesito(s) o grupo teve sua MELHOR nota entre os quesitos dele mesmo — não significa que ele está vencendo aquele quesito no concurso geral.</p>');
 
     if (res.desqualificados && res.desqualificados.length) {
       partes.push('<div class="auto-section"><div class="auto-section__title">⚠ Desistentes / Desclassificados</div>' +
@@ -209,7 +241,7 @@
       : '<span style="color:rgba(250,245,231,0.5);font-size:12.5px;">Aguardando notas...</span>';
     return '<div class="auto-card is-ativa"><div><div class="auto-card__nome">' + c.nome + '</div>' +
       '<div class="auto-card__sub">' + (c.cidade || '') + '/' + c.estado + '</div></div>' +
-      '<div class="auto-card__destaque">' + chips + '</div></div>';
+      '<div class="auto-card__destaque-wrap"><div class="auto-card__destaque-label">Destaques do grupo</div><div class="auto-card__destaque">' + chips + '</div></div></div>';
   }
 
   function montarCardApresentado(c) {
@@ -218,14 +250,19 @@
       : '<span style="color:rgba(250,245,231,0.4);font-size:12px;">Sem notas ainda</span>';
     return '<div class="auto-card"><div><div class="auto-card__nome">' + c.nome + '</div>' +
       '<div class="auto-card__sub">' + (c.cidade || '') + '/' + c.estado + '</div></div>' +
-      '<div class="auto-card__destaque">' + chips + '</div></div>';
+      '<div class="auto-card__destaque-wrap"><div class="auto-card__destaque-label">Destaques do grupo</div><div class="auto-card__destaque">' + chips + '</div></div></div>';
   }
 
   /* ===================== MODO REVELAÇÃO ===================== */
 
-  function montarSequenciaRevelacao(res) {
-    var sequencia = (res.desqualificados || []).map(function (d) {
-      return { tipo: 'desqualificado', dados: d };
+  // Monta a lista já na ORDEM DE EXIBIÇÃO (melhor colocado no topo), mas
+  // cada item carrega sua "ordem de revelação" (do pior pro melhor,
+  // efeito clássico de contagem regressiva) — são coisas independentes.
+  function montarSequenciaExibicao(res) {
+    var totalDesq = (res.desqualificados || []).length;
+
+    var itensDesq = (res.desqualificados || []).map(function (d, idx) {
+      return { tipo: 'desqualificado', dados: d, revealOrder: idx };
     });
 
     var posicaoAtual = 1;
@@ -234,63 +271,143 @@
       posicaoAtual += grupo.length;
       return { tipo: 'ranking', posicao: pos, membros: grupo };
     });
+    var n = gruposComPosicao.length;
+    gruposComPosicao.forEach(function (g, idx) { g.revealOrder = totalDesq + (n - 1 - idx); });
 
-    // revela do pior colocado pro melhor — efeito clássico de contagem regressiva
-    return sequencia.concat(gruposComPosicao.slice().reverse());
+    return itensDesq.concat(gruposComPosicao);
   }
 
+  var ultimaChaveRevelacao = null;
+  var ultimoRevealIndexAplicado = null;
+
   function renderRevelacao(res) {
-    var host = document.getElementById('viewRevelacao');
-    var sequencia = montarSequenciaRevelacao(res);
+    document.getElementById('idleTitulo').textContent = res.nomeEvento || 'Concurso';
+    document.getElementById('idleOverlay').classList.toggle('is-hidden', (res.revealIndex || 0) > 0);
+
+    var host = document.getElementById('revelacaoLista');
+    var revealIndex = res.revealIndex || 0;
+    var sequencia = montarSequenciaExibicao(res);
 
     if (!sequencia.length) {
-      host.innerHTML = '<p class="empty">O ranking oficial ainda não está disponível.</p>';
+      host.innerHTML = '';
       return;
     }
 
-    var revealIndex = res.revealIndex || 0;
+    var chave = sequencia.map(function (item) {
+      return item.tipo === 'desqualificado' ? 'D:' + item.dados.id : 'G:' + item.membros.map(function (m) { return m.id; }).join(',');
+    }).join('|');
 
-    host.innerHTML = sequencia.map(function (passo, i) {
-      var revelado = i < revealIndex;
-      var aberta = i === revealIndex - 1; // o mais recente revelado fica "aberto"
+    if (chave !== ultimaChaveRevelacao) {
+      construirDomRevelacao(res, sequencia);
+      ultimaChaveRevelacao = chave;
+      // Se é a primeiríssima vez que esta página monta a lista, aplica sem
+      // animação (evita um "efeito cascata" estranho ao carregar a página
+      // já no meio de uma cerimônia). Depois disso, tudo anima normalmente.
+      aplicarEstadoRevelacao(revealIndex, ultimoRevealIndexAplicado === null);
+      ultimoRevealIndexAplicado = revealIndex;
+      return;
+    }
 
-      if (passo.tipo === 'desqualificado') {
-        var d = passo.dados;
-        return '<div class="reveal-row is-desq' + (revelado ? ' is-revealed' : '') + '">' +
+    atualizarValoresRevelacao(sequencia);
+    if (revealIndex !== ultimoRevealIndexAplicado) {
+      aplicarEstadoRevelacao(revealIndex, false);
+      ultimoRevealIndexAplicado = revealIndex;
+    }
+  }
+
+  function construirDomRevelacao(res, sequencia) {
+    var host = document.getElementById('revelacaoLista');
+
+    host.innerHTML = sequencia.map(function (item) {
+      if (item.tipo === 'desqualificado') {
+        var d = item.dados;
+        var infoReal = (d.cidade || '') + '/' + d.estado + ' · ' + (d.flag === 'DESISTENTE' ? 'Desistente' : 'Desclassificado');
+        return '<div class="reveal-row is-desq" data-reveal-order="' + item.revealOrder + '">' +
           '<div class="reveal-row__head">' +
           '<div class="reveal-row__pos">⚠</div>' +
-          '<div class="reveal-row__nome"><strong>' + (revelado ? d.nome : '?????') + '</strong>' +
-          '<span>' + (revelado ? ((d.cidade || '') + '/' + d.estado + ' · ' + (d.flag === 'DESISTENTE' ? 'Desistente' : 'Desclassificado')) : '') + '</span></div>' +
+          '<div class="reveal-row__nome"><strong class="js-nome" data-real="' + escAttr(d.nome) + '">?????</strong>' +
+          '<span class="js-info" data-real="' + escAttr(infoReal) + '"></span></div>' +
           '</div></div>';
       }
 
-      var posTotal = sequencia.length; // não usado, só clareza
-      var classePosicao = passo.posicao === 1 ? 'top1' : passo.posicao === 2 ? 'top2' : passo.posicao === 3 ? 'top3' : (passo.posicao <= 5 ? 'top5' : '');
-      var membros = passo.membros;
+      var classePosicao = item.posicao === 1 ? 'top1' : item.posicao === 2 ? 'top2' : item.posicao === 3 ? 'top3' : (item.posicao <= 5 ? 'top5' : '');
+      var membros = item.membros;
       var empatados = membros.length > 1;
 
       var blocosMembros = membros.map(function (m) {
         var quesitosHtml = res.quesitos.map(function (q) {
-          return '<div class="reveal-detalhe__item"><div class="q-nome">' + q.nome + '</div><div class="q-nota">' + (m.detalhamento[q.id] || 0) + '</div></div>';
+          return '<div class="reveal-detalhe__item"><div class="q-nome">' + q.nome + '</div><div class="q-nota" data-q="' + q.id + '">' + (m.detalhamento[q.id] || 0) + '</div></div>';
         }).join('');
+        var infoReal = (m.cidade || '') + '/' + m.estado;
 
-        return '<div style="' + (empatados ? 'margin-bottom:14px;padding-bottom:14px;border-bottom:1px dashed rgba(255,255,255,0.15);' : '') + '">' +
+        return '<div class="reveal-membro" data-membro="' + m.id + '" style="' + (empatados ? 'margin-bottom:14px;padding-bottom:14px;border-bottom:1px dashed rgba(255,255,255,0.15);' : '') + '">' +
           '<div class="reveal-row__head">' +
-          '<div class="reveal-row__pos">' + passo.posicao + 'º</div>' +
-          '<div class="reveal-row__nome"><strong>' + (revelado ? m.nome : '?????') + '</strong><span>' + (revelado ? ((m.cidade || '') + '/' + m.estado) : '') + '</span></div>' +
-          '<div class="reveal-row__total">' + (revelado ? m.total : '—') + '</div>' +
+          '<div class="reveal-row__pos">' + item.posicao + 'º</div>' +
+          '<div class="reveal-row__nome"><strong class="js-nome" data-real="' + escAttr(m.nome) + '">?????</strong><span class="js-info" data-real="' + escAttr(infoReal) + '"></span></div>' +
+          '<div class="reveal-row__total js-total" data-total="' + m.id + '" data-real="' + m.total + '">—</div>' +
           '</div>' +
-          (revelado ? '<div class="reveal-detalhe"><div class="reveal-detalhe__grid">' + quesitosHtml + '</div>' +
-            (m.observacao && m.observacao.indexOf('Desempate aplicado') === 0 ? '<p class="reveal-desempate-nota">⚖ ' + m.observacao + '</p>' : '') +
-            '</div>' : '') +
+          '<div class="reveal-detalhe"><div class="reveal-detalhe__grid">' + quesitosHtml + '</div>' +
+          (m.observacao && m.observacao.indexOf('Desempate aplicado') === 0 ? '<p class="reveal-desempate-nota">⚖ ' + m.observacao + '</p>' : '') +
+          '</div>' +
           '</div>';
       }).join('');
 
-      return '<div class="reveal-row ' + classePosicao + (revelado ? ' is-revealed' : '') + (aberta ? ' is-aberta' : '') + '">' +
-        (empatados && revelado ? '<div class="reveal-empate-badge">🤝 Empate — ' + membros.length + ' grupos na ' + passo.posicao + 'ª posição</div>' : '') +
+      return '<div class="reveal-row ' + classePosicao + '" data-reveal-order="' + item.revealOrder + '">' +
+        (empatados ? '<div class="reveal-empate-badge">🤝 Empate — ' + membros.length + ' grupos na ' + item.posicao + 'ª posição</div>' : '') +
         blocosMembros +
         '</div>';
     }).join('');
+  }
+
+  function escAttr(s) {
+    return String(s || '').replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
+  }
+
+  // Só liga/desliga as classes de revelação em cima do DOM que já existe
+  // — como os elementos já estavam lá com o estado "antes", a transição
+  // do CSS de fato acontece (é isso que fazia a animação não aparecer).
+  // Também troca "?????" pelo nome/pontuação de verdade só na hora de
+  // revelar, pra ninguém adiantar o resultado espiando o código da página.
+  function aplicarEstadoRevelacao(revealIndex, semAnimacao) {
+    var linhas = document.querySelectorAll('#viewRevelacao .reveal-row[data-reveal-order]');
+    linhas.forEach(function (linha) {
+      var ordem = Number(linha.dataset.revealOrder);
+      var vaiRevelar = ordem < revealIndex;
+      if (semAnimacao) linha.classList.add('sem-transicao');
+
+      if (vaiRevelar) {
+        linha.querySelectorAll('.js-nome, .js-info, .js-total').forEach(function (el) {
+          if (el.dataset.real !== undefined) el.textContent = el.dataset.real;
+        });
+      }
+
+      linha.classList.toggle('is-revealed', vaiRevelar);
+      linha.classList.toggle('is-aberta', ordem === revealIndex - 1);
+      if (semAnimacao) {
+        linha.offsetHeight; // força reflow antes de tirar a trava de transição
+        linha.classList.remove('sem-transicao');
+      }
+    });
+  }
+
+  // Os números podem mudar mesmo depois de revelado, se uma correção for
+  // validada durante a cerimônia — atualiza sem redesenhar tudo de novo.
+  function atualizarValoresRevelacao(sequencia) {
+    sequencia.forEach(function (item) {
+      if (item.tipo !== 'ranking') return;
+      item.membros.forEach(function (m) {
+        var totalEl = document.querySelector('[data-total="' + m.id + '"]');
+        if (totalEl) {
+          totalEl.dataset.real = m.total;
+          var linhaPai = totalEl.closest('.reveal-row');
+          if (linhaPai && linhaPai.classList.contains('is-revealed')) totalEl.textContent = m.total;
+        }
+        Object.keys(m.detalhamento).forEach(function (qid) {
+          var qEl = document.querySelector('.reveal-membro[data-membro="' + m.id + '"] [data-q="' + qid + '"]');
+          if (qEl) qEl.textContent = m.detalhamento[qid];
+        });
+      });
+    });
   }
 
   /* ===================== CONTROLES ===================== */
