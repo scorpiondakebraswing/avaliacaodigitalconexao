@@ -139,12 +139,12 @@
   </div>
 </div>
 
-<script src="assets/js/config.js?v=25"></script>
-<script src="assets/js/mock-data.js?v=25"></script>
-<script src="assets/js/api.js?v=25"></script>
-<script src="assets/js/session.js?v=25"></script>
-<script src="assets/js/toast.js?v=25"></script>
-<script src="assets/js/shell.js?v=25"></script>
+<script src="assets/js/config.js?v=26"></script>
+<script src="assets/js/mock-data.js?v=26"></script>
+<script src="assets/js/api.js?v=26"></script>
+<script src="assets/js/session.js?v=26"></script>
+<script src="assets/js/toast.js?v=26"></script>
+<script src="assets/js/shell.js?v=26"></script>
 <script>
   var session = Session.require(['consultor', 'admin']);
   if (session) { Shell.init(session); boot(); }
@@ -222,7 +222,7 @@
   function carregarMapaQuesitos() {
     return Api.call('get_quesitos', { event_id: EVT }).then(function (res) {
       mapaQuesitos = {};
-      (res.quesitos || []).forEach(function (q) { mapaQuesitos[q.id] = q.nome; });
+      (res.quesitos || []).forEach(function (q) { mapaQuesitos[q.id] = q.nomeExibicao || q.nome; });
     });
   }
 
@@ -394,7 +394,7 @@
     Api.call('get_official_ranking', { event_id: EVT }).then(function (res) {
       Api.call('get_quesitos', { event_id: EVT }).then(function (qres) {
         var quesitos = qres.quesitos || [];
-        document.getElementById('rankingHead').innerHTML = '<tr><th>Pos.</th><th>Candidata</th><th>Cidade</th><th>Estado</th>' + quesitos.map(function (q) { return '<th>' + q.nome + '</th>'; }).join('') + '<th>Total</th><th>Observação</th></tr>';
+        document.getElementById('rankingHead').innerHTML = '<tr><th>Pos.</th><th>Candidata</th><th>Cidade</th><th>Estado</th>' + quesitos.map(function (q) { return '<th>' + (q.nomeExibicao || q.nome) + '</th>'; }).join('') + '<th>Total</th><th>Observação</th></tr>';
         var body = document.getElementById('rankingBody');
         var ranking = res.ranking || [];
         if (!ranking.length) { body.innerHTML = '<tr><td colspan="' + (quesitos.length + 6) + '" class="table-empty">Ranking oficial vazio.</td></tr>'; return; }

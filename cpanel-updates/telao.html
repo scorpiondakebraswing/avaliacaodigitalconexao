@@ -185,9 +185,9 @@
     <button id="btnReiniciar">Reiniciar</button>
   </div>
 
-<script src="assets/js/config.js?v=25"></script>
-<script src="assets/js/mock-data.js?v=25"></script>
-<script src="assets/js/api.js?v=25"></script>
+<script src="assets/js/config.js?v=26"></script>
+<script src="assets/js/mock-data.js?v=26"></script>
+<script src="assets/js/api.js?v=26"></script>
 <script>
   var params = new URLSearchParams(window.location.search);
   var EVT = params.get('evento') || window.APP_CONFIG.EVENT_ID;
@@ -336,7 +336,7 @@
 
       var blocosMembros = membros.map(function (m) {
         var quesitosHtml = res.quesitos.map(function (q) {
-          return '<div class="reveal-detalhe__item"><div class="q-nome">' + q.nome + '</div><div class="q-nota" data-q="' + q.id + '">' + (m.detalhamento[q.id] || 0) + '</div></div>';
+          return '<div class="reveal-detalhe__item"><div class="q-nome">' + (q.nomeExibicao || q.nome) + '</div><div class="q-nota" data-q="' + q.id + '">' + (m.detalhamento[q.id] || 0) + '</div></div>';
         }).join('');
         var infoReal = (m.cidade || '') + '/' + m.estado;
 

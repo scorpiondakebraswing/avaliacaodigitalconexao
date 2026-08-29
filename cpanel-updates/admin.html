@@ -6,7 +6,7 @@
 <title>Painel do Administrador — Avaliação Digital 2.0</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;700;800&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="assets/css/style.css?v=25">
+<link rel="stylesheet" href="assets/css/style.css?v=26">
 </head>
 <body>
 
@@ -107,19 +107,34 @@
         <div class="card">
           <div class="card__head">
             <div>
-              <h2 class="card__title">Quesitos de avaliação (catálogo geral)</h2>
-              <p class="card__desc">Válidos para todos os eventos, ou só para os que você selecionar. O <strong>Peso</strong> define a ordem de prioridade no desempate (peso 1 é conferido primeiro) — veja "Desempate" na edição do evento.</p>
+              <h2 class="card__title">Quesitos de Quadrilha</h2>
+              <p class="card__desc">Avaliados diretamente, cada um com nota e justificativa próprias. O <strong>Peso</strong> define a prioridade no desempate (peso 1 é conferido primeiro).</p>
             </div>
-            <button class="btn btn-primary btn-sm" id="btnNovoQuesito">+ Novo quesito</button>
+            <button class="btn btn-primary btn-sm" id="btnNovoQuesitoQuadrilha">+ Novo quesito</button>
           </div>
           <div class="table-wrap">
             <table>
               <thead><tr><th>Ordem</th><th>Nome do quesito</th><th>Peso (desempate)</th><th>Válido para</th><th>Ações</th></tr></thead>
-              <tbody id="quesitosBody"></tbody>
+              <tbody id="quesitosQuadrilhaBody"></tbody>
             </table>
           </div>
-          <button class="btn btn-secondary btn-sm" id="btnSalvarQuesitos" style="margin-top:14px;">Salvar quesitos</button>
         </div>
+
+        <div class="card">
+          <div class="card__head">
+            <div>
+              <h2 class="card__title">Quesitos de Destaques</h2>
+              <p class="card__desc">Divididos em grupos (ex.: Rainha, Marcador, Casal) — dentro de cada grupo, cada <strong>subquesito</strong> recebe nota e justificativa individualmente do avaliador, igual aos de quadrilha.</p>
+            </div>
+            <div style="display:flex;gap:8px;">
+              <button class="btn btn-secondary btn-sm" id="btnCarregarPadraoDestaques">Carregar padrão (Rainha/Marcador/Casal)</button>
+              <button class="btn btn-primary btn-sm" id="btnNovoGrupoDestaque">+ Novo grupo</button>
+            </div>
+          </div>
+          <div id="gruposDestaquesContainer"></div>
+        </div>
+
+        <button class="btn btn-secondary btn-sm" id="btnSalvarQuesitos">Salvar quesitos</button>
       </section>
 
       <!-- ===================== CANDIDATAS / GRUPOS ===================== -->
@@ -333,12 +348,12 @@
   </div>
 </div>
 
-<script src="assets/js/config.js?v=25"></script>
-<script src="assets/js/mock-data.js?v=25"></script>
-<script src="assets/js/api.js?v=25"></script>
-<script src="assets/js/session.js?v=25"></script>
-<script src="assets/js/toast.js?v=25"></script>
-<script src="assets/js/shell.js?v=25"></script>
+<script src="assets/js/config.js?v=26"></script>
+<script src="assets/js/mock-data.js?v=26"></script>
+<script src="assets/js/api.js?v=26"></script>
+<script src="assets/js/session.js?v=26"></script>
+<script src="assets/js/toast.js?v=26"></script>
+<script src="assets/js/shell.js?v=26"></script>
 <script>
   var session = Session.require(['admin']);
   if (session) { Shell.init(session); boot(); }
@@ -514,8 +529,9 @@
       var nestedHtml = quesitosDoEvento.length
         ? quesitosDoEvento.map(function (q) {
             var qChecked = permitidos.indexOf(q.id) !== -1 ? 'checked' : '';
+            var rotulo = q.grupoPai ? (q.grupoPai + ' - ' + q.nome) : q.nome;
             return '<label style="display:flex;align-items:center;gap:6px;padding:3px 0;font-size:12.5px;">' +
-              '<input type="checkbox" value="' + q.id + '" style="width:auto;" ' + qChecked + '>' + q.nome + '</label>';
+              '<input type="checkbox" value="' + q.id + '" style="width:auto;" ' + qChecked + '>' + rotulo + '</label>';
           }).join('')
         : '<p class="hint" style="margin:4px 0 0;">Este evento não tem quesitos cadastrados ainda.</p>';
 
@@ -771,7 +787,7 @@
     });
   };
 
-  /* ---------------- quesitos (catálogo global) ---------------- */
+  /* ---------------- quesitos (catálogo global: quadrilha + destaques) ---------------- */
 
   var quesitosState = [];
 
@@ -786,80 +802,197 @@
     });
   }
 
+  function recomputarOrdens() {
+    var seqQuad = 1;
+    quesitosState.filter(function (q) { return q.familia !== 'destaque'; }).forEach(function (q) { q.ordem = seqQuad++; });
+
+    var contadores = {};
+    quesitosState.filter(function (q) { return q.familia === 'destaque'; }).forEach(function (q) {
+      var chave = q.grupoPai || '';
+      contadores[chave] = (contadores[chave] || 0) + 1;
+      q.ordem = contadores[chave];
+    });
+  }
+
+  function mesmoEscopo(q, ref) {
+    if (q.familia !== ref.familia) return false;
+    if (ref.familia === 'destaque') return (q.grupoPai || '') === (ref.grupoPai || '');
+    return true;
+  }
+
+  window.moverQuesitoEscopo = function (id, direcao) {
+    var item = quesitosState.find(function (q) { return q.id === id; });
+    if (!item) return;
+    var escopo = quesitosState.filter(function (q) { return mesmoEscopo(q, item); });
+    var idx = escopo.indexOf(item);
+    var alvo = idx + direcao;
+    if (alvo < 0 || alvo >= escopo.length) return;
+    var outro = escopo[alvo];
+    var iA = quesitosState.indexOf(item), iB = quesitosState.indexOf(outro);
+    var tmp = quesitosState[iA]; quesitosState[iA] = quesitosState[iB]; quesitosState[iB] = tmp;
+    renderQuesitos();
+  };
+
   function renderQuesitos() {
-    var body = document.getElementById('quesitosBody');
-    if (!quesitosState.length) { body.innerHTML = '<tr><td colspan="5" class="table-empty">Nenhum quesito cadastrado.</td></tr>'; return; }
+    recomputarOrdens();
+    renderQuesitosQuadrilha();
+    renderGruposDestaques();
+  }
 
-    // A ordem é sempre a posição na lista (1, 2, 3...) — nunca duplicada.
-    // Reordenar é feito pelos botões ▲▼, não digitando um número.
-    quesitosState.forEach(function (q, idx) { q.ordem = idx + 1; });
+  function linhaValidoPara(q) {
+    var validoSelect = '<select onchange="updateQuesitoValidade(\'' + q.id + '\',this.value)" style="margin-bottom:6px;">' +
+      '<option value="todos" ' + (q.validoParaTodos ? 'selected' : '') + '>Todos os eventos</option>' +
+      '<option value="especificos" ' + (!q.validoParaTodos ? 'selected' : '') + '>Eventos específicos</option>' +
+      '</select>';
+    if (q.validoParaTodos) return validoSelect;
+    return validoSelect + '<select multiple size="3" style="font-size:12px;" onchange="updateQuesitoEventos(\'' + q.id + '\',this)">' +
+      eventosCache.map(function (e) {
+        var sel = (q.eventos || []).indexOf(e.id) !== -1 ? 'selected' : '';
+        return '<option value="' + e.id + '" ' + sel + '>' + e.nome + '</option>';
+      }).join('') + '</select>';
+  }
 
-    body.innerHTML = quesitosState.map(function (q, i) {
-      var validoSelect = '<select onchange="updateQuesitoValidade(' + i + ',this.value)" style="margin-bottom:6px;">' +
-        '<option value="todos" ' + (q.validoParaTodos ? 'selected' : '') + '>Todos os eventos</option>' +
-        '<option value="especificos" ' + (!q.validoParaTodos ? 'selected' : '') + '>Eventos específicos</option>' +
-        '</select>';
+  function renderQuesitosQuadrilha() {
+    var body = document.getElementById('quesitosQuadrilhaBody');
+    var lista = quesitosState.filter(function (q) { return q.familia !== 'destaque'; }).sort(function (a, b) { return a.ordem - b.ordem; });
+    if (!lista.length) { body.innerHTML = '<tr><td colspan="5" class="table-empty">Nenhum quesito de quadrilha cadastrado.</td></tr>'; return; }
 
-      var eventosMultiSelect = '';
-      if (!q.validoParaTodos) {
-        eventosMultiSelect = '<select multiple size="3" style="font-size:12px;" onchange="updateQuesitoEventos(' + i + ',this)">' +
-          eventosCache.map(function (e) {
-            var sel = (q.eventos || []).indexOf(e.id) !== -1 ? 'selected' : '';
-            return '<option value="' + e.id + '" ' + sel + '>' + e.nome + '</option>';
-          }).join('') + '</select>';
-      }
-
+    body.innerHTML = lista.map(function (q, i) {
       return '<tr>' +
         '<td style="white-space:nowrap;">' +
-        '<button type="button" class="btn btn-ghost btn-sm" style="padding:4px 8px;" onclick="moverQuesito(' + i + ',-1)" ' + (i === 0 ? 'disabled' : '') + ' title="Mover para cima">▲</button> ' +
+        '<button type="button" class="btn btn-ghost btn-sm" style="padding:4px 8px;" onclick="moverQuesitoEscopo(\'' + q.id + '\',-1)" ' + (i === 0 ? 'disabled' : '') + ' title="Mover para cima">▲</button> ' +
         '<strong>' + q.ordem + '</strong> ' +
-        '<button type="button" class="btn btn-ghost btn-sm" style="padding:4px 8px;" onclick="moverQuesito(' + i + ',1)" ' + (i === quesitosState.length - 1 ? 'disabled' : '') + ' title="Mover para baixo">▼</button>' +
+        '<button type="button" class="btn btn-ghost btn-sm" style="padding:4px 8px;" onclick="moverQuesitoEscopo(\'' + q.id + '\',1)" ' + (i === lista.length - 1 ? 'disabled' : '') + ' title="Mover para baixo">▼</button>' +
         '</td>' +
-        '<td><input type="text" value="' + q.nome + '" style="text-transform:uppercase;" oninput="autoUpper(this);updateQuesito(' + i + ',\'nome\',this.value)"></td>' +
-        '<td><input type="number" step="1" min="1" value="' + q.peso + '" style="width:80px;" onchange="updateQuesitoPeso(' + i + ',this)"></td>' +
-        '<td>' + validoSelect + eventosMultiSelect + '</td>' +
-        '<td><button class="btn btn-ghost btn-sm" onclick="removerQuesito(' + i + ')">Remover</button></td>' +
+        '<td><input type="text" value="' + q.nome + '" style="text-transform:uppercase;" oninput="autoUpper(this);updateQuesitoCampo(\'' + q.id + '\',\'nome\',this.value)"></td>' +
+        '<td><input type="number" step="1" min="1" value="' + q.peso + '" style="width:80px;" onchange="updateQuesitoPeso(\'' + q.id + '\',this)"></td>' +
+        '<td>' + linhaValidoPara(q) + '</td>' +
+        '<td><button class="btn btn-ghost btn-sm" onclick="removerQuesito(\'' + q.id + '\')">Remover</button></td>' +
         '</tr>';
     }).join('');
   }
 
-  window.updateQuesito = function (i, field, value) {
-    quesitosState[i][field] = value;
+  function renderGruposDestaques() {
+    var host = document.getElementById('gruposDestaquesContainer');
+    var destaques = quesitosState.filter(function (q) { return q.familia === 'destaque'; });
+
+    var grupos = [];
+    destaques.forEach(function (q) {
+      var nome = q.grupoPai || '(sem grupo)';
+      if (grupos.indexOf(nome) === -1) grupos.push(nome);
+    });
+
+    if (!grupos.length) { host.innerHTML = '<p class="card__desc">Nenhum grupo de destaque cadastrado ainda. Clique em "Carregar padrão" ou "+ Novo grupo".</p>'; return; }
+
+    host.innerHTML = grupos.map(function (grupoNome) {
+      var subquesitos = destaques.filter(function (q) { return (q.grupoPai || '(sem grupo)') === grupoNome; }).sort(function (a, b) { return a.ordem - b.ordem; });
+
+      var linhas = subquesitos.map(function (q, i) {
+        return '<tr>' +
+          '<td style="white-space:nowrap;">' +
+          '<button type="button" class="btn btn-ghost btn-sm" style="padding:4px 8px;" onclick="moverQuesitoEscopo(\'' + q.id + '\',-1)" ' + (i === 0 ? 'disabled' : '') + '>▲</button> ' +
+          '<strong>' + q.ordem + '</strong> ' +
+          '<button type="button" class="btn btn-ghost btn-sm" style="padding:4px 8px;" onclick="moverQuesitoEscopo(\'' + q.id + '\',1)" ' + (i === subquesitos.length - 1 ? 'disabled' : '') + '>▼</button>' +
+          '</td>' +
+          '<td><input type="text" value="' + q.nome + '" style="text-transform:uppercase;" oninput="autoUpper(this);updateQuesitoCampo(\'' + q.id + '\',\'nome\',this.value)"></td>' +
+          '<td><input type="number" step="1" min="1" value="' + q.peso + '" style="width:80px;" onchange="updateQuesitoPeso(\'' + q.id + '\',this)"></td>' +
+          '<td>' + linhaValidoPara(q) + '</td>' +
+          '<td><button class="btn btn-ghost btn-sm" onclick="removerQuesito(\'' + q.id + '\')">Remover</button></td>' +
+          '</tr>';
+      }).join('');
+
+      return '<div style="border:1px solid var(--app-border);border-radius:var(--radius-md);padding:16px;margin-bottom:14px;">' +
+        '<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:10px;flex-wrap:wrap;">' +
+        '<input type="text" value="' + grupoNome + '" data-grupo-atual="' + grupoNome + '" style="max-width:260px;font-weight:700;text-transform:uppercase;" oninput="autoUpper(this);renomearGrupoDestaque(this,this.value)">' +
+        '<div style="display:flex;gap:8px;">' +
+        '<button class="btn btn-secondary btn-sm" onclick="adicionarSubquesito(\'' + grupoNome.replace(/'/g, "") + '\')">+ Subquesito</button>' +
+        '<button class="btn btn-ghost btn-sm" onclick="removerGrupoDestaque(\'' + grupoNome.replace(/'/g, "") + '\')">Remover grupo</button>' +
+        '</div></div>' +
+        '<div class="table-wrap"><table><thead><tr><th>Ordem</th><th>Subquesito</th><th>Peso (desempate)</th><th>Válido para</th><th>Ações</th></tr></thead><tbody>' + linhas + '</tbody></table></div>' +
+        '</div>';
+    }).join('');
+  }
+
+  window.updateQuesitoCampo = function (id, campo, valor) {
+    var item = quesitosState.find(function (q) { return q.id === id; });
+    if (item) item[campo] = valor;
   };
 
-  window.updateQuesitoPeso = function (i, el) {
+  window.updateQuesitoPeso = function (id, el) {
     var inteiro = Math.max(1, Math.round(Number(el.value) || 1));
     el.value = inteiro;
-    quesitosState[i].peso = inteiro;
+    var item = quesitosState.find(function (q) { return q.id === id; });
+    if (item) item.peso = inteiro;
   };
 
-  window.moverQuesito = function (i, direcao) {
-    var alvo = i + direcao;
-    if (alvo < 0 || alvo >= quesitosState.length) return;
-    var temp = quesitosState[i];
-    quesitosState[i] = quesitosState[alvo];
-    quesitosState[alvo] = temp;
+  window.updateQuesitoValidade = function (id, value) {
+    var item = quesitosState.find(function (q) { return q.id === id; });
+    if (!item) return;
+    item.validoParaTodos = (value === 'todos');
+    if (item.validoParaTodos) item.eventos = [];
     renderQuesitos();
   };
 
-  window.updateQuesitoValidade = function (i, value) {
-    quesitosState[i].validoParaTodos = (value === 'todos');
-    if (quesitosState[i].validoParaTodos) quesitosState[i].eventos = [];
+  window.updateQuesitoEventos = function (id, selectEl) {
+    var item = quesitosState.find(function (q) { return q.id === id; });
+    if (item) item.eventos = Array.prototype.slice.call(selectEl.selectedOptions).map(function (o) { return o.value; });
+  };
+
+  window.removerQuesito = function (id) {
+    quesitosState = quesitosState.filter(function (q) { return q.id !== id; });
     renderQuesitos();
   };
 
-  window.updateQuesitoEventos = function (i, selectEl) {
-    quesitosState[i].eventos = Array.prototype.slice.call(selectEl.selectedOptions).map(function (o) { return o.value; });
+  window.renomearGrupoDestaque = function (inputEl, novoNome) {
+    var grupoAtual = inputEl.dataset.grupoAtual;
+    quesitosState.forEach(function (q) {
+      if (q.familia === 'destaque' && (q.grupoPai || '(sem grupo)') === grupoAtual) q.grupoPai = novoNome;
+    });
+    inputEl.dataset.grupoAtual = novoNome;
   };
 
-  window.removerQuesito = function (i) {
-    quesitosState.splice(i, 1);
+  window.adicionarSubquesito = function (grupoNome) {
+    quesitosState.push({ id: 'destaque-' + Date.now(), nome: '', peso: 1, ordem: 1, validoParaTodos: true, eventos: [], familia: 'destaque', grupoPai: grupoNome });
     renderQuesitos();
   };
 
-  document.getElementById('btnNovoQuesito').addEventListener('click', function () {
-    quesitosState.push({ id: 'q' + (Date.now()), nome: '', peso: quesitosState.length + 1, ordem: quesitosState.length + 1, validoParaTodos: true, eventos: [] });
+  window.removerGrupoDestaque = function (grupoNome) {
+    if (!window.confirm('Remover o grupo "' + grupoNome + '" e todos os seus subquesitos?')) return;
+    quesitosState = quesitosState.filter(function (q) { return !(q.familia === 'destaque' && (q.grupoPai || '(sem grupo)') === grupoNome); });
     renderQuesitos();
+  };
+
+  document.getElementById('btnNovoQuesitoQuadrilha').addEventListener('click', function () {
+    quesitosState.push({ id: 'q' + Date.now(), nome: '', peso: 1, ordem: 1, validoParaTodos: true, eventos: [], familia: 'quadrilha', grupoPai: null });
+    renderQuesitos();
+  });
+
+  document.getElementById('btnNovoGrupoDestaque').addEventListener('click', function () {
+    var nome = window.prompt('Nome do novo grupo de destaque (ex.: RAINHA, MARCADOR, CASAL):');
+    if (!nome) return;
+    nome = nome.trim().toUpperCase();
+    quesitosState.push({ id: 'destaque-' + Date.now(), nome: '', peso: 1, ordem: 1, validoParaTodos: true, eventos: [], familia: 'destaque', grupoPai: nome });
+    renderQuesitos();
+  });
+
+  document.getElementById('btnCarregarPadraoDestaques').addEventListener('click', function () {
+    var padrao = [
+      { grupo: 'RAINHA', subquesitos: ['DESENVOLTURA', 'FIGURINO', 'ANIMAÇÃO', 'INTEGRAÇÃO'] },
+      { grupo: 'MARCADOR', subquesitos: ['LIDERANÇA', 'DESENVOLTURA', 'FIGURINO', 'ANIMAÇÃO', 'INTEGRAÇÃO'] },
+      { grupo: 'CASAL', subquesitos: ['INTERPRETAÇÃO', 'DESENVOLTURA', 'FIGURINO', 'ANIMAÇÃO', 'INTEGRAÇÃO'] }
+    ];
+    var adicionados = 0;
+    padrao.forEach(function (grupo) {
+      grupo.subquesitos.forEach(function (nomeSub, idx) {
+        var jaExiste = quesitosState.some(function (q) { return q.familia === 'destaque' && q.grupoPai === grupo.grupo && q.nome === nomeSub; });
+        if (jaExiste) return;
+        quesitosState.push({ id: 'destaque-' + Date.now() + '-' + adicionados, nome: nomeSub, peso: idx + 1, ordem: idx + 1, validoParaTodos: true, eventos: [], familia: 'destaque', grupoPai: grupo.grupo });
+        adicionados++;
+      });
+    });
+    renderQuesitos();
+    if (adicionados) Toast.success(adicionados + ' subquesito(s) padrão adicionado(s). Clique em "Salvar quesitos" para confirmar.');
+    else Toast.info('Os grupos e subquesitos padrão já estavam todos cadastrados.');
   });
 
   document.getElementById('btnSalvarQuesitos').addEventListener('click', function () {

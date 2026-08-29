@@ -390,7 +390,7 @@ var Api = {
           var valores = Object.keys(detalhamento).map(function (k) { return detalhamento[k]; });
           var total = valores.reduce(function (a, b) { return a + b; }, 0);
           var max = valores.length ? Math.max.apply(null, valores) : 0;
-          var destaque = max > 0 ? quesitosT.filter(function (q) { return detalhamento[q.id] === max; }).map(function (q) { return q.nome; }) : [];
+          var destaque = max > 0 ? quesitosT.filter(function (q) { return detalhamento[q.id] === max; }).map(function (q) { return q.nomeExibicao || q.nome; }) : [];
           return { total: total, detalhamento: detalhamento, destaqueQuesitos: destaque };
         }
 

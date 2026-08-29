@@ -699,3 +699,21 @@ canvas.sign-pad{
   background:rgba(255,255,255,0.4);
   z-index:-1; pointer-events:none;
 }
+
+/* =========================================================
+   Títulos de agrupamento de quesitos (Quadrilha / Destaques)
+   na tela do avaliador
+   ========================================================= */
+
+.quesito-grupo-titulo{
+  font-family:'Baloo 2', sans-serif; font-size:16px; font-weight:700;
+  color:var(--gold-deep); text-transform:uppercase; letter-spacing:0.04em;
+  margin:0 0 6px; padding-top:14px;
+}
+
+.quesito-subgrupo-titulo{
+  font-size:13px; font-weight:700; color:var(--ink-soft);
+  text-transform:uppercase; letter-spacing:0.05em;
+  margin:14px 0 2px; padding:6px 10px; background:var(--paper-shade);
+  border-radius:var(--radius-sm); display:inline-block;
+}

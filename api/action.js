@@ -146,6 +146,21 @@ async function getCandidatasCompletas(eventoId) {
   return finalizadas.filter((c) => !idsComPendencia.has(c.id));
 }
 
+// Nome pra exibição em telas "achatadas" (tabelas, ranking, telão) —
+// quesitos de destaque ganham o prefixo do grupo (ex.: "RAINHA -
+// DESENVOLTURA") já que o nome sozinho se repete entre Rainha/Marcador/Casal.
+function nomeExibicaoQuesito(q) {
+  return q.grupo_pai ? (q.grupo_pai + ' - ' + q.nome) : q.nome;
+}
+
+function mapQuesito(q) {
+  return {
+    id: q.id, nome: q.nome, peso: Number(q.peso), ordem: q.ordem,
+    familia: q.familia || 'quadrilha', grupoPai: q.grupo_pai || null,
+    nomeExibicao: nomeExibicaoQuesito(q)
+  };
+}
+
 async function getQuesitosParaEvento(eventoId) {
   const [{ data: globais, error: e1 }, { data: aplic, error: e2 }] = await Promise.all([
     supabase.from('quesitos_globais').select('*').order('ordem'),
@@ -156,7 +171,7 @@ async function getQuesitosParaEvento(eventoId) {
   const idsEspecificos = new Set((aplic || []).map((r) => r.quesito_id));
   return (globais || [])
     .filter((q) => q.valido_para_todos || idsEspecificos.has(q.id))
-    .map((q) => ({ id: q.id, nome: q.nome, peso: Number(q.peso), ordem: q.ordem }));
+    .map(mapQuesito);
 }
 
 async function getCandidatasDoEvento(eventoId) {
@@ -294,7 +309,8 @@ async function getQuesitosGlobais(body) {
     success: true,
     quesitos: (globais || []).map((q) => ({
       id: q.id, nome: q.nome, peso: Number(q.peso), ordem: q.ordem,
-      validoParaTodos: q.valido_para_todos, eventos: map[q.id] || []
+      validoParaTodos: q.valido_para_todos, eventos: map[q.id] || [],
+      familia: q.familia || 'quadrilha', grupoPai: q.grupo_pai || null
     }))
   };
 }
@@ -648,7 +664,7 @@ async function computeDetalhamento(eventoId, candidataId, regraDescarte) {
     getVotosDoEvento(eventoId, candidataId)
   ]);
   return quesitos.sort((a, b) => a.ordem - b.ordem).map((q) => ({
-    quesito: q.nome,
+    quesito: q.nomeExibicao,
     quesitoId: q.id,
     votos: marcarDescartes(votos.filter((v) => v.quesito_id === q.id), regraDescarte)
   }));
@@ -886,7 +902,7 @@ function calcularDestaqueQuesitos(candidataId, votos, quesitos, regraDescarte) {
   const valores = Object.values(detalhamento);
   const total = valores.reduce((a, b) => a + b, 0);
   const max = valores.length ? Math.max(...valores) : 0;
-  const destaqueQuesitos = max > 0 ? quesitos.filter((q) => detalhamento[q.id] === max).map((q) => q.nome) : [];
+  const destaqueQuesitos = max > 0 ? quesitos.filter((q) => detalhamento[q.id] === max).map((q) => q.nomeExibicao) : [];
   return { total, detalhamento, destaqueQuesitos };
 }
 
@@ -1081,7 +1097,8 @@ async function adminSaveQuesitos(body) {
   await del;
 
   await supabase.from('quesitos_globais').upsert(quesitos.map((q) => ({
-    id: q.id, nome: q.nome, peso: q.peso, ordem: q.ordem, valido_para_todos: q.validoParaTodos !== false, cliente_id: clienteId
+    id: q.id, nome: q.nome, peso: q.peso, ordem: q.ordem, valido_para_todos: q.validoParaTodos !== false, cliente_id: clienteId,
+    familia: q.familia === 'destaque' ? 'destaque' : 'quadrilha', grupo_pai: q.familia === 'destaque' ? (q.grupoPai || null) : null
   })));
 
   await supabase.from('quesito_eventos').delete().in('quesito_id', ids.length ? ids : ['__none__']);

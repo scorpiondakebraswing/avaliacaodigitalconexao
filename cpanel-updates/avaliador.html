@@ -100,12 +100,12 @@
   </div>
 </div>
 
-<script src="assets/js/config.js?v=25"></script>
-<script src="assets/js/mock-data.js?v=25"></script>
-<script src="assets/js/api.js?v=25"></script>
-<script src="assets/js/session.js?v=25"></script>
-<script src="assets/js/toast.js?v=25"></script>
-<script src="assets/js/shell.js?v=25"></script>
+<script src="assets/js/config.js?v=26"></script>
+<script src="assets/js/mock-data.js?v=26"></script>
+<script src="assets/js/api.js?v=26"></script>
+<script src="assets/js/session.js?v=26"></script>
+<script src="assets/js/toast.js?v=26"></script>
+<script src="assets/js/shell.js?v=26"></script>
 <script>
   var session = Session.require(['avaliador']);
   if (session) {
@@ -259,7 +259,7 @@
       ? 'Justificativa (obrigatória, até ' + maxChars + ' caracteres)'
       : 'Justificativa (opcional, até ' + maxChars + ' caracteres)';
 
-    container.innerHTML = quesitosAtuais.sort(function (a, b) { return a.ordem - b.ordem; }).map(function (q) {
+    function campoQuesito(q) {
       return '<div class="form-field" style="border-top:1px solid var(--app-border);padding-top:16px;">' +
         '<label>' + q.nome + '</label>' +
         '<div class="note-picker" data-quesito="' + q.id + '">' +
@@ -269,7 +269,30 @@
         '</div>' +
         '<textarea placeholder="' + placeholderJust + '" maxlength="' + maxChars + '" data-just="' + q.id + '" style="margin-top:10px;"></textarea>' +
         '</div>';
-    }).join('');
+    }
+
+    var quadrilha = quesitosAtuais.filter(function (q) { return q.familia !== 'destaque'; }).sort(function (a, b) { return a.ordem - b.ordem; });
+    var destaques = quesitosAtuais.filter(function (q) { return q.familia === 'destaque'; });
+
+    var gruposDestaque = [];
+    destaques.forEach(function (q) {
+      var nome = q.grupoPai || '(sem grupo)';
+      if (gruposDestaque.indexOf(nome) === -1) gruposDestaque.push(nome);
+    });
+
+    var html = '';
+    if (quadrilha.length) {
+      html += '<h3 class="quesito-grupo-titulo">Quadrilha</h3>' + quadrilha.map(campoQuesito).join('');
+    }
+    if (gruposDestaque.length) {
+      html += '<h3 class="quesito-grupo-titulo" style="margin-top:20px;">Destaques</h3>';
+      gruposDestaque.forEach(function (grupoNome) {
+        var subquesitos = destaques.filter(function (q) { return (q.grupoPai || '(sem grupo)') === grupoNome; }).sort(function (a, b) { return a.ordem - b.ordem; });
+        html += '<h4 class="quesito-subgrupo-titulo">' + grupoNome + '</h4>' + subquesitos.map(campoQuesito).join('');
+      });
+    }
+
+    container.innerHTML = html;
 
     container.querySelectorAll('.note-option').forEach(function (btn) {
       btn.addEventListener('click', function () {

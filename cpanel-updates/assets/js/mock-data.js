@@ -29,10 +29,30 @@ var MockDB = {
       // Catálogo GLOBAL de quesitos (por cliente). Cada evento usa os que
       // forem "válidos para todos" + os específicos que o incluam em `eventos`.
       quesitosGlobais: [
-        { id: "q1", nome: "DESENVOLTURA", peso: 1, ordem: 1, validoParaTodos: true, eventos: [], clienteId: "cli-1" },
-        { id: "q2", nome: "CRIATIVIDADE", peso: 1, ordem: 2, validoParaTodos: true, eventos: [], clienteId: "cli-1" },
-        { id: "q3", nome: "SIMPATIA", peso: 1, ordem: 3, validoParaTodos: true, eventos: [], clienteId: "cli-1" },
-        { id: "q4", nome: "ATUAÇÃO", peso: 1, ordem: 4, validoParaTodos: true, eventos: [], clienteId: "cli-1" }
+        { id: "q1", nome: "TEMA", peso: 1, ordem: 1, validoParaTodos: true, eventos: [], clienteId: "cli-1", familia: "quadrilha", grupoPai: null },
+        { id: "q2", nome: "REPERTÓRIO", peso: 2, ordem: 2, validoParaTodos: true, eventos: [], clienteId: "cli-1", familia: "quadrilha", grupoPai: null },
+        { id: "q3", nome: "FIGURINO", peso: 3, ordem: 3, validoParaTodos: true, eventos: [], clienteId: "cli-1", familia: "quadrilha", grupoPai: null },
+        { id: "q4", nome: "COREOGRAFIA", peso: 4, ordem: 4, validoParaTodos: true, eventos: [], clienteId: "cli-1", familia: "quadrilha", grupoPai: null },
+        { id: "q5", nome: "ANIMAÇÃO", peso: 5, ordem: 5, validoParaTodos: true, eventos: [], clienteId: "cli-1", familia: "quadrilha", grupoPai: null },
+        { id: "q6", nome: "CASAMENTO", peso: 6, ordem: 6, validoParaTodos: true, eventos: [], clienteId: "cli-1", familia: "quadrilha", grupoPai: null },
+        { id: "q7", nome: "DINÂMICA", peso: 7, ordem: 7, validoParaTodos: true, eventos: [], clienteId: "cli-1", familia: "quadrilha", grupoPai: null },
+
+        { id: "d1", nome: "DESENVOLTURA", peso: 1, ordem: 1, validoParaTodos: true, eventos: [], clienteId: "cli-1", familia: "destaque", grupoPai: "RAINHA" },
+        { id: "d2", nome: "FIGURINO", peso: 2, ordem: 2, validoParaTodos: true, eventos: [], clienteId: "cli-1", familia: "destaque", grupoPai: "RAINHA" },
+        { id: "d3", nome: "ANIMAÇÃO", peso: 3, ordem: 3, validoParaTodos: true, eventos: [], clienteId: "cli-1", familia: "destaque", grupoPai: "RAINHA" },
+        { id: "d4", nome: "INTEGRAÇÃO", peso: 4, ordem: 4, validoParaTodos: true, eventos: [], clienteId: "cli-1", familia: "destaque", grupoPai: "RAINHA" },
+
+        { id: "d5", nome: "LIDERANÇA", peso: 1, ordem: 1, validoParaTodos: true, eventos: [], clienteId: "cli-1", familia: "destaque", grupoPai: "MARCADOR" },
+        { id: "d6", nome: "DESENVOLTURA", peso: 2, ordem: 2, validoParaTodos: true, eventos: [], clienteId: "cli-1", familia: "destaque", grupoPai: "MARCADOR" },
+        { id: "d7", nome: "FIGURINO", peso: 3, ordem: 3, validoParaTodos: true, eventos: [], clienteId: "cli-1", familia: "destaque", grupoPai: "MARCADOR" },
+        { id: "d8", nome: "ANIMAÇÃO", peso: 4, ordem: 4, validoParaTodos: true, eventos: [], clienteId: "cli-1", familia: "destaque", grupoPai: "MARCADOR" },
+        { id: "d9", nome: "INTEGRAÇÃO", peso: 5, ordem: 5, validoParaTodos: true, eventos: [], clienteId: "cli-1", familia: "destaque", grupoPai: "MARCADOR" },
+
+        { id: "d10", nome: "INTERPRETAÇÃO", peso: 1, ordem: 1, validoParaTodos: true, eventos: [], clienteId: "cli-1", familia: "destaque", grupoPai: "CASAL" },
+        { id: "d11", nome: "DESENVOLTURA", peso: 2, ordem: 2, validoParaTodos: true, eventos: [], clienteId: "cli-1", familia: "destaque", grupoPai: "CASAL" },
+        { id: "d12", nome: "FIGURINO", peso: 3, ordem: 3, validoParaTodos: true, eventos: [], clienteId: "cli-1", familia: "destaque", grupoPai: "CASAL" },
+        { id: "d13", nome: "ANIMAÇÃO", peso: 4, ordem: 4, validoParaTodos: true, eventos: [], clienteId: "cli-1", familia: "destaque", grupoPai: "CASAL" },
+        { id: "d14", nome: "INTEGRAÇÃO", peso: 5, ordem: 5, validoParaTodos: true, eventos: [], clienteId: "cli-1", familia: "destaque", grupoPai: "CASAL" }
       ],
 
       // Catálogo GLOBAL de grupos/quadrilhas (por cliente). Cada evento associa
@@ -146,10 +166,20 @@ var MockDB = {
 
   // Quesitos aplicáveis a um evento específico: os "válidos para todos"
   // + os específicos que incluam esse eventoId na própria lista.
+  nomeExibicaoQuesito: function (q) {
+    return q.grupoPai ? (q.grupoPai + " - " + q.nome) : q.nome;
+  },
+
   getQuesitosParaEvento: function (db, eventoId) {
     return (db.quesitosGlobais || []).filter(function (q) {
       return q.validoParaTodos || (q.eventos || []).indexOf(eventoId) !== -1;
-    }).sort(function (a, b) { return a.ordem - b.ordem; });
+    }).sort(function (a, b) { return a.ordem - b.ordem; }).map(function (q) {
+      return {
+        id: q.id, nome: q.nome, peso: q.peso, ordem: q.ordem,
+        familia: q.familia || "quadrilha", grupoPai: q.grupoPai || null,
+        nomeExibicao: MockDB.nomeExibicaoQuesito(q)
+      };
+    });
   },
 
   /* ---------------- notas válidas (nota mín/máx + tipo) ---------------- */
@@ -291,7 +321,7 @@ var MockDB = {
         }
       }
 
-      return { quesito: q.nome, votos: marcados };
+      return { quesito: MockDB.nomeExibicaoQuesito(q), quesitoId: q.id, votos: marcados };
     });
   }
 };

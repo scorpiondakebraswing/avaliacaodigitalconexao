@@ -223,12 +223,12 @@
   </div>
 </div>
 
-<script src="assets/js/config.js?v=25"></script>
-<script src="assets/js/mock-data.js?v=25"></script>
-<script src="assets/js/api.js?v=25"></script>
-<script src="assets/js/session.js?v=25"></script>
-<script src="assets/js/toast.js?v=25"></script>
-<script src="assets/js/shell.js?v=25"></script>
+<script src="assets/js/config.js?v=26"></script>
+<script src="assets/js/mock-data.js?v=26"></script>
+<script src="assets/js/api.js?v=26"></script>
+<script src="assets/js/session.js?v=26"></script>
+<script src="assets/js/toast.js?v=26"></script>
+<script src="assets/js/shell.js?v=26"></script>
 <script>
   var session = Session.require(['presidente', 'admin']);
   if (session) {
@@ -261,7 +261,7 @@
   function carregarMapaQuesitos() {
     return Api.call('get_quesitos', { event_id: EVT }).then(function (res) {
       mapaQuesitos = {};
-      (res.quesitos || []).forEach(function (q) { mapaQuesitos[q.id] = q.nome; });
+      (res.quesitos || []).forEach(function (q) { mapaQuesitos[q.id] = q.nomeExibicao || q.nome; });
     });
   }
 
@@ -747,7 +747,7 @@
         }).join(', ');
       }
 
-      var head = '<tr><th>Pos.</th><th>Grupo</th><th>Cidade/UF</th>' + quesitos.map(function (q) { return '<th>' + q.nome + '</th>'; }).join('') + '<th>Total</th></tr>';
+      var head = '<tr><th>Pos.</th><th>Grupo</th><th>Cidade/UF</th>' + quesitos.map(function (q) { return '<th>' + (q.nomeExibicao || q.nome) + '</th>'; }).join('') + '<th>Total</th></tr>';
 
       var linhas = ranking.map(function (r2, i) {
         return '<tr><td>' + (i + 1) + 'º</td><td><strong>' + r2.nome + '</strong></td><td>' + (r2.cidade || '') + '/' + r2.estado + '</td>' +
@@ -827,7 +827,7 @@
               '</tr>';
           }).join('');
 
-          return '<h3 style="font-size:13px;margin:16px 0 6px;text-transform:uppercase;">' + q.nome + '</h3>' +
+          return '<h3 style="font-size:13px;margin:16px 0 6px;text-transform:uppercase;">' + (q.nomeExibicao || q.nome) + '</h3>' +
             '<table><thead><tr><th>Avaliador</th><th>Nota</th><th>Justificativa / histórico</th><th>Assinatura</th></tr></thead><tbody>' + linhas + '</tbody></table>';
         }).join('');
 
@@ -925,7 +925,7 @@
     Api.call('get_official_ranking', { event_id: EVT }).then(function (res) {
       Api.call('get_quesitos', { event_id: EVT }).then(function (qres) {
         var quesitos = qres.quesitos || [];
-        var head = '<tr><th>Pos.</th><th>Candidata</th><th>Cidade</th><th>Estado</th>' + quesitos.map(function (q) { return '<th>' + q.nome + '</th>'; }).join('') + '<th>Total</th><th>Observação</th></tr>';
+        var head = '<tr><th>Pos.</th><th>Candidata</th><th>Cidade</th><th>Estado</th>' + quesitos.map(function (q) { return '<th>' + (q.nomeExibicao || q.nome) + '</th>'; }).join('') + '<th>Total</th><th>Observação</th></tr>';
         document.getElementById('rankingHead').innerHTML = head;
 
         var body = document.getElementById('rankingBody');
