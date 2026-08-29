@@ -239,32 +239,40 @@ button{ font-family:inherit; }
 
 .app-content--narrow{ max-width:920px; }
 
-/* mobile sidebar toggle */
-.mobile-topbar{ display:none; }
+/* =========================================================
+   Menu lateral em modo "hambúrguer" — sempre escondido por
+   padrão, em qualquer tamanho de tela, só abre ao clicar.
+   ========================================================= */
+
+.app-shell{ flex-direction:column; }
+
+.app-sidebar{
+  position:fixed; inset:0 auto 0 0;
+  width:280px; max-width:82vw;
+  z-index:40; transform:translateX(-100%);
+  transition:transform .22s ease;
+}
+
+.app-sidebar.is-open{ transform:translateX(0); box-shadow:8px 0 24px rgba(0,0,0,0.25); }
+
+.mobile-topbar{
+  display:flex; align-items:center; justify-content:space-between;
+  background:var(--sidebar-bg); color:var(--paper);
+  padding:14px 18px;
+}
+
+.mobile-topbar__toggle{
+  background:none; border:none; color:var(--paper);
+  font-size:22px; cursor:pointer; line-height:1; padding:4px 6px;
+}
+
+.sidebar-overlay{
+  display:none; position:fixed; inset:0; background:rgba(9,20,17,0.5); z-index:39;
+}
+
+.sidebar-overlay.is-open{ display:block; }
 
 @media (max-width:900px){
-  .app-shell{ flex-direction:column; }
-  .app-sidebar{
-    position:fixed; inset:0 30% 0 0;
-    z-index:40; transform:translateX(-100%);
-    transition:transform .2s ease;
-    width:auto;
-  }
-  .app-sidebar.is-open{ transform:translateX(0); }
-  .mobile-topbar{
-    display:flex; align-items:center; justify-content:space-between;
-    background:var(--sidebar-bg); color:var(--paper);
-    padding:14px 16px;
-  }
-  .mobile-topbar__toggle{
-    background:none; border:none; color:var(--paper);
-    font-size:20px; cursor:pointer;
-  }
-  .sidebar-overlay{
-    display:none; position:fixed; inset:0; background:rgba(9,20,17,0.5); z-index:39;
-  }
-  .sidebar-overlay.is-open{ display:block; }
-
   .app-topbar{ padding:14px 18px; }
   .app-content{ padding:16px 16px 44px; }
   .card{ padding:16px; }
@@ -677,4 +685,17 @@ canvas.sign-pad{
 .blink-alert-btn{
   animation: blinkAlertBg 1.1s infinite;
   color:#fff !important;
+}
+
+/* =========================================================
+   Botão "segure para confirmar" (evita clique acidental em
+   ações irreversíveis, como encerrar a avaliação de um grupo)
+   ========================================================= */
+
+.btn-hold-confirm{ position:relative; overflow:hidden; }
+
+.hold-progress{
+  position:absolute; left:0; top:0; bottom:0; width:0%;
+  background:rgba(255,255,255,0.4);
+  z-index:-1; pointer-events:none;
 }

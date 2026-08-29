@@ -100,12 +100,12 @@
   </div>
 </div>
 
-<script src="assets/js/config.js?v=22"></script>
-<script src="assets/js/mock-data.js?v=22"></script>
-<script src="assets/js/api.js?v=22"></script>
-<script src="assets/js/session.js?v=22"></script>
-<script src="assets/js/toast.js?v=22"></script>
-<script src="assets/js/shell.js?v=22"></script>
+<script src="assets/js/config.js?v=23"></script>
+<script src="assets/js/mock-data.js?v=23"></script>
+<script src="assets/js/api.js?v=23"></script>
+<script src="assets/js/session.js?v=23"></script>
+<script src="assets/js/toast.js?v=23"></script>
+<script src="assets/js/shell.js?v=23"></script>
 <script>
   var session = Session.require(['avaliador']);
   if (session) {
@@ -197,6 +197,7 @@
             jaEnviouVoto = !!(voto.votos && voto.votos.length);
             renderQuesitos();
             atualizarEstadoTela(res.statusSistema);
+            if (!jaEnviouVoto) restaurarRascunho();
           });
         });
         return;
@@ -276,23 +277,55 @@
         group.querySelectorAll('.note-option').forEach(function (b) { b.classList.remove('is-selected'); });
         btn.classList.add('is-selected');
         notasSelecionadas[group.dataset.quesito] = Number(btn.dataset.value);
+        agendarAutoSalvarRascunho();
       });
+    });
+
+    container.querySelectorAll('textarea[data-just]').forEach(function (ta) {
+      ta.addEventListener('input', agendarAutoSalvarRascunho);
     });
   }
 
-  function prefillMyVote() {
+  // Salva automaticamente o que o avaliador já preencheu, pra não perder
+  // nada se o celular desligar ou a página recarregar sem querer. Espera
+  // 900ms de pausa na digitação antes de salvar, pra não sobrecarregar.
+  var rascunhoTimer = null;
+
+  function agendarAutoSalvarRascunho() {
+    if (rascunhoTimer) clearTimeout(rascunhoTimer);
+    rascunhoTimer = setTimeout(salvarRascunhoAgora, 900);
+  }
+
+  function salvarRascunhoAgora() {
+    if (!candidataAtual || jaEnviouVoto) return;
+    var justificativas = {};
+    quesitosAtuais.forEach(function (q) {
+      var ta = document.querySelector('textarea[data-just="' + q.id + '"]');
+      justificativas[q.id] = ta ? ta.value : '';
+    });
+    Api.call('salvar_rascunho', {
+      event_id: EVT, id_candidata: candidataAtual.id, login: session.codigo,
+      notas: notasSelecionadas, just: justificativas
+    });
+  }
+
+  function restaurarRascunho() {
     if (!candidataAtual) return;
-    Api.call('get_my_vote', { event_id: EVT, id_candidata: candidataAtual.id, login: session.codigo }).then(function (res) {
-      (res.votos || []).forEach(function (v) {
-        var group = document.querySelector('.note-picker[data-quesito="' + v.quesitoId + '"]');
-        if (group) {
-          group.querySelectorAll('.note-option').forEach(function (b) {
-            b.classList.toggle('is-selected', Number(b.dataset.value) === Number(v.nota));
-          });
-          notasSelecionadas[v.quesitoId] = Number(v.nota);
+    Api.call('get_rascunho', { event_id: EVT, id_candidata: candidataAtual.id, login: session.codigo }).then(function (res) {
+      if (!res.notas) return;
+      Object.keys(res.notas).forEach(function (qid) {
+        var nota = res.notas[qid];
+        if (nota !== null && nota !== undefined && nota !== '') {
+          var group = document.querySelector('.note-picker[data-quesito="' + qid + '"]');
+          if (group) {
+            group.querySelectorAll('.note-option').forEach(function (b) {
+              b.classList.toggle('is-selected', Number(b.dataset.value) === Number(nota));
+            });
+            notasSelecionadas[qid] = Number(nota);
+          }
         }
-        var textarea = document.querySelector('textarea[data-just="' + v.quesitoId + '"]');
-        if (textarea) textarea.value = v.justificativa || '';
+        var textarea = document.querySelector('textarea[data-just="' + qid + '"]');
+        if (textarea && res.justificativas && res.justificativas[qid]) textarea.value = res.justificativas[qid];
       });
     });
   }
@@ -460,7 +493,16 @@
     canvas = document.getElementById('signPad');
     ctx = canvas.getContext('2d');
     resizeCanvas();
-    window.addEventListener('resize', resizeCanvas);
+
+    // Usar ResizeObserver em vez de só "window resize": o canvas também
+    // muda de tamanho quando o menu lateral abre/fecha ou o layout muda
+    // por qualquer outro motivo — sem isso, o traço do mouse ficava
+    // desalinhado até a página inteira ser redimensionada de verdade.
+    if (window.ResizeObserver) {
+      new ResizeObserver(function () { resizeCanvas(); }).observe(canvas);
+    } else {
+      window.addEventListener('resize', resizeCanvas);
+    }
 
     canvas.addEventListener('pointerdown', function (e) { drawing = true; drawDot(e); });
     canvas.addEventListener('pointermove', function (e) { if (drawing) drawLine(e); });

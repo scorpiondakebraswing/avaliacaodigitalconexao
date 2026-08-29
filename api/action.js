@@ -9,6 +9,7 @@
 
 const supabase = require('../lib/supabaseAdmin');
 const { REGRAS_PADRAO, gerarValoresNota, marcarDescartes, gerarRanking } = require('../lib/regras');
+const { hashSenha, verificarSenha } = require('../lib/auth');
 
 module.exports = async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -36,6 +37,11 @@ module.exports = async function handler(req, res) {
 async function route(action, body) {
   switch (action) {
     case 'login': return login(body);
+    case 'redefinir_senha': return redefinirSenha(body);
+    case 'salvar_rascunho': return salvarRascunho(body);
+    case 'get_rascunho': return getRascunho(body);
+    case 'marcar_avaliador_problema': return marcarAvaliadorProblema(body);
+    case 'reabrir_avaliacao': return reabrirAvaliacao(body);
 
     case 'get_quesitos': return getQuesitos(body);
     case 'get_evento_regras': return getEventoRegras(body);
@@ -114,6 +120,32 @@ async function getEvento(eventoId) {
   return data;
 }
 
+// Uma candidata entra no ranking/notas validadas automaticamente quando:
+// (1) o presidente já encerrou a avaliação dela (FINALIZADA), e
+// (2) não há nenhum questionamento em aberto (pendente de resposta do
+//     avaliador, ou já corrigido mas ainda não validado pelo presidente).
+// Isso substitui o antigo botão manual "Marcar como auditada" — assim
+// que a última correção pendente é validada, a candidata já aparece.
+async function candidataEstaCompleta(eventoId, candidataId) {
+  const { data: cand } = await supabase.from('evento_candidatas').select('status_avaliacao').eq('evento_id', eventoId).eq('id', candidataId).maybeSingle();
+  if (!cand || cand.status_avaliacao !== 'FINALIZADA') return false;
+
+  const { data: pendentes } = await supabase.from('correcoes').select('id')
+    .eq('evento_id', eventoId).eq('candidata_id', candidataId).in('status', ['PENDENTE_CORRECAO', 'CORRIGIDA']);
+  return !(pendentes && pendentes.length);
+}
+
+async function getCandidatasCompletas(eventoId) {
+  const candidatas = await getCandidatasDoEvento(eventoId);
+  const finalizadas = candidatas.filter((c) => c.status_avaliacao === 'FINALIZADA');
+  if (!finalizadas.length) return [];
+
+  const { data: pendentes } = await supabase.from('correcoes').select('candidata_id')
+    .eq('evento_id', eventoId).in('status', ['PENDENTE_CORRECAO', 'CORRIGIDA']);
+  const idsComPendencia = new Set((pendentes || []).map((p) => p.candidata_id));
+  return finalizadas.filter((c) => !idsComPendencia.has(c.id));
+}
+
 async function getQuesitosParaEvento(eventoId) {
   const [{ data: globais, error: e1 }, { data: aplic, error: e2 }] = await Promise.all([
     supabase.from('quesitos_globais').select('*').order('ordem'),
@@ -167,6 +199,17 @@ async function login(body) {
   if (!usuario) return { success: false, message: 'Código não reconhecido. Verifique com a organização do seu evento.' };
   if (usuario.ativo === false) return { success: false, message: 'Este usuário está desativado. Fale com o administrador do seu evento.' };
 
+  // Só o avaliador loga só com código. Os demais perfis (master, admin,
+  // presidente, consultor) agora também precisam de senha.
+  if (usuario.perfil !== 'avaliador') {
+    if (!usuario.senha_hash) {
+      return { success: false, message: 'Este usuário ainda não tem senha definida. Peça ao administrador para redefinir sua senha.' };
+    }
+    if (!verificarSenha(String(body.senha || ''), usuario.senha_hash)) {
+      return { success: false, message: 'Código ou senha incorretos.' };
+    }
+  }
+
   // perfil master não pertence a nenhum cliente — gerencia todos.
   if (usuario.perfil !== 'master') {
     if (!usuario.cliente_id) return { success: false, message: 'Este usuário não está associado a nenhum grupo de clientes. Fale com o master da plataforma.' };
@@ -184,6 +227,31 @@ async function login(body) {
   if (eventoId) await registrarLog(eventoId, 'LOGIN', usuario.nome, usuario.perfil.toUpperCase(), 'Login efetuado com sucesso');
 
   return { success: true, usuario: { codigo: usuario.codigo, nome: usuario.nome, perfil: usuario.perfil, eventoId, eventos: usuario.eventos, clienteId: usuario.cliente_id || null } };
+}
+
+async function redefinirSenha(body) {
+  const perfilQuemPede = String(body.perfil || '').toLowerCase();
+  if (!['master', 'admin'].includes(perfilQuemPede)) return { success: false, message: 'Acesso negado' };
+
+  const alvo = await getUsuarioPorCodigo(String(body.codigo || '').trim());
+  if (!alvo) return { success: false, message: 'Usuário não encontrado' };
+  if (alvo.perfil === 'avaliador') return { success: false, message: 'Avaliadores não usam senha — só código de acesso.' };
+
+  // admin só pode redefinir senha de usuários do próprio cliente
+  if (perfilQuemPede === 'admin' && alvo.cliente_id !== body.cliente_id) {
+    return { success: false, message: 'Você só pode redefinir a senha de usuários do seu próprio grupo.' };
+  }
+
+  const novaSenha = String(body.novaSenha || '');
+  if (novaSenha.length < 6) return { success: false, message: 'A nova senha precisa ter pelo menos 6 caracteres.' };
+
+  const { error } = await supabase.from('usuarios').update({ senha_hash: hashSenha(novaSenha) }).eq('codigo', alvo.codigo);
+  if (error) return { success: false, message: 'Erro ao redefinir senha: ' + error.message };
+
+  if (alvo.eventos && alvo.eventos[0]) {
+    await registrarLog(alvo.eventos[0], 'RESET_PASSWORD', body.usuario, body.perfil, `Senha de ${alvo.codigo} redefinida por ${body.usuario || perfilQuemPede}`);
+  }
+  return { success: true, message: 'Senha redefinida com sucesso.' };
 }
 
 /* ============================= quesitos / status ============================= */
@@ -362,10 +430,22 @@ async function setCandidateFlag(body) {
   const perfil = String(body.perfil || '').toUpperCase();
   if (!['PRESIDENTE DE MESA', 'ADMIN', 'CONSULTOR'].includes(perfil)) return { success: false, message: 'Acesso negado' };
 
+  const jaCompleta = await candidataEstaCompleta(body.event_id, body.id_candidata);
+  if (jaCompleta) {
+    return { success: false, message: 'Esta candidata já está com todas as notas validadas e faz parte do ranking oficial. Abra um novo questionamento nela pra poder alterar o status de novo.' };
+  }
+
   const flag = String(body.flag || '').toUpperCase();
   const patch = flag === 'DESISTENTE' || flag === 'DESCLASSIFICADA'
     ? { flag_especial: flag, disponibilidade: 'NAO_DISPONIVEL', status_avaliacao: flag }
     : { flag_especial: '', disponibilidade: 'DISPONIVEL' };
+
+  if (flag !== 'DESISTENTE' && flag !== 'DESCLASSIFICADA') {
+    // Reativando: volta pra fila, a não ser que já tivesse sido finalizada
+    // antes de ser desclassificada/desistente (aí preserva o FINALIZADA).
+    const { data: atual } = await supabase.from('evento_candidatas').select('status_avaliacao').eq('evento_id', body.event_id).eq('id', body.id_candidata).maybeSingle();
+    patch.status_avaliacao = (atual && atual.status_avaliacao === 'FINALIZADA') ? 'FINALIZADA' : 'PENDENTE';
+  }
 
   await supabase.from('evento_candidatas').update(patch).eq('evento_id', body.event_id).eq('id', body.id_candidata);
   await registrarLog(body.event_id, 'SET_CANDIDATE_FLAG', body.usuario, body.perfil, body.id_candidata + ' -> ' + (flag || 'SEM_FLAG'));
@@ -373,6 +453,113 @@ async function setCandidateFlag(body) {
 }
 
 /* ============================= votos ============================= */
+
+async function salvarRascunho(body) {
+  const login = String(body.login || '').trim();
+  if (!login) return { success: false, message: 'Login obrigatório' };
+
+  const linhas = Object.keys(body.notas || {}).map((qid) => ({
+    evento_id: body.event_id, candidata_id: body.id_candidata, codigo: login, quesito_id: qid,
+    nota: body.notas[qid] !== undefined && body.notas[qid] !== null && body.notas[qid] !== '' ? body.notas[qid] : null,
+    justificativa: (body.just || {})[qid] || '', atualizado_em: new Date().toISOString()
+  }));
+  if (!linhas.length) return { success: true };
+
+  const { error } = await supabase.from('rascunhos_voto').upsert(linhas, { onConflict: 'evento_id,candidata_id,codigo,quesito_id' });
+  if (error) return { success: false, message: 'Erro ao salvar rascunho: ' + error.message };
+  return { success: true };
+}
+
+async function getRascunho(body) {
+  const { data, error } = await supabase.from('rascunhos_voto').select('*')
+    .eq('evento_id', body.event_id).eq('candidata_id', body.id_candidata).ilike('codigo', body.login);
+  if (error) throw error;
+  const notas = {}, justificativas = {};
+  (data || []).forEach((r) => { notas[r.quesito_id] = r.nota; justificativas[r.quesito_id] = r.justificativa; });
+  return { success: true, notas, justificativas };
+}
+
+async function limparRascunho(eventoId, candidataId, login) {
+  await supabase.from('rascunhos_voto').delete().eq('evento_id', eventoId).eq('candidata_id', candidataId).ilike('codigo', login);
+}
+
+async function marcarAvaliadorProblema(body) {
+  const perfil = String(body.perfil || '').toUpperCase();
+  if (perfil !== 'ADMIN') return { success: false, message: 'Acesso negado' };
+
+  const codigo = String(body.codigo || '').trim();
+  const motivo = String(body.motivo || '').trim();
+  if (!motivo) return { success: false, message: 'Informe o motivo.' };
+
+  const comProblema = body.comProblema !== false;
+
+  const { error: e1 } = await supabase.from('usuarios').update({
+    com_problema: comProblema, motivo_problema: comProblema ? motivo : null
+  }).eq('codigo', codigo);
+  if (e1) return { success: false, message: 'Erro ao atualizar usuário: ' + e1.message };
+
+  if (!comProblema) {
+    return { success: true, message: 'Avaliador reativado. Nenhuma nota mínima automática foi aplicada retroativamente.' };
+  }
+
+  // Preenche nota mínima em todos os quesitos de todas as candidatas do
+  // evento informado, SÓ onde esse avaliador ainda não tinha votado —
+  // votos já registrados não são sobrescritos.
+  const eventoId = body.event_id;
+  if (!eventoId) return { success: true, message: 'Avaliador marcado como indisponível.' };
+
+  const evento = await getEvento(eventoId);
+  const regras = (evento && evento.regras) || REGRAS_PADRAO;
+  const notaMinima = regras.notaMin;
+
+  const [candidatas, quesitos, votosExistentes] = await Promise.all([
+    getCandidatasDoEvento(eventoId),
+    getQuesitosParaEvento(eventoId),
+    getVotosDoEvento(eventoId)
+  ]);
+
+  const jaVotou = new Set(votosExistentes.filter((v) => v.login.toUpperCase() === codigo.toUpperCase()).map((v) => v.candidata_id + '::' + v.quesito_id));
+
+  const linhas = [];
+  candidatas.forEach((c) => {
+    quesitos.forEach((q) => {
+      const chave = c.id + '::' + q.id;
+      if (jaVotou.has(chave)) return;
+      linhas.push({
+        evento_id: eventoId, candidata_id: c.id, login: codigo, avaliador_nome: body.nomeAvaliador || codigo,
+        perfil: 'AVALIADOR', quesito_id: q.id, nota: notaMinima,
+        justificativa: `Nota mínima aplicada automaticamente — avaliador indisponível. Motivo: ${motivo}`, assinatura: ''
+      });
+    });
+  });
+
+  if (linhas.length) {
+    const { error: e2 } = await supabase.from('votos').upsert(linhas, { onConflict: 'evento_id,candidata_id,login,quesito_id' });
+    if (e2) return { success: false, message: 'Usuário marcado, mas houve erro ao aplicar as notas mínimas: ' + e2.message };
+  }
+
+  await registrarLog(eventoId, 'MARK_AVALIADOR_PROBLEMA', body.usuario, body.perfil, `Avaliador ${codigo} marcado como indisponível — motivo: ${motivo}. ${linhas.length} nota(s) mínima(s) aplicada(s) automaticamente.`);
+  return { success: true, message: `Avaliador marcado como indisponível. ${linhas.length} nota(s) mínima(s) foram preenchidas automaticamente.` };
+}
+
+async function reabrirAvaliacao(body) {
+  const perfil = String(body.perfil || '').toUpperCase();
+  if (!['PRESIDENTE DE MESA', 'ADMIN'].includes(perfil)) return { success: false, message: 'Acesso negado' };
+
+  const jaCompleta = await candidataEstaCompleta(body.event_id, body.id_candidata);
+  if (jaCompleta) {
+    return { success: false, message: 'Esta candidata já está com todas as notas validadas e faz parte do ranking oficial. Abra um novo questionamento nela pra poder reabrir a avaliação.' };
+  }
+
+  const { data: cand } = await supabase.from('evento_candidatas').select('*').eq('evento_id', body.event_id).eq('id', body.id_candidata).maybeSingle();
+  if (!cand) return { success: false, message: 'Candidata não encontrada' };
+
+  const { error } = await supabase.from('evento_candidatas').update({ status_avaliacao: 'PENDENTE' }).eq('evento_id', body.event_id).eq('id', body.id_candidata);
+  if (error) return { success: false, message: 'Erro ao reabrir: ' + error.message };
+
+  await registrarLog(body.event_id, 'REOPEN_EVALUATION', body.usuario, body.perfil, `Avaliação de "${cand.nome}" reaberta (estava finalizada).`);
+  return { success: true, message: 'Avaliação reaberta — a candidata voltou para a fila.' };
+}
 
 async function getMyVote(body) {
   const { data, error } = await supabase.from('votos').select('*')
@@ -410,6 +597,7 @@ async function submitVote(body) {
   const { error } = await supabase.from('votos').upsert(linhas, { onConflict: 'evento_id,candidata_id,login,quesito_id' });
   if (error) throw error;
 
+  await limparRascunho(body.event_id, body.id_candidata, body.login);
   await registrarLog(body.event_id, 'SUBMIT_VOTE', body.login, body.perfil, 'Voto registrado/atualizado para candidata ' + body.id_candidata);
   return { success: true, message: 'Voto registrado com sucesso' };
 }
@@ -436,7 +624,7 @@ async function getReceivedNotes(body) {
   return {
     success: true,
     candidatas: candidatas.map((c) => ({
-      id: c.id, nome: c.nome, cidade: c.cidade, estado: c.estado, statusAuditoria: c.status_auditoria,
+      id: c.id, nome: c.nome, cidade: c.cidade, estado: c.estado, statusAvaliacao: c.status_avaliacao,
       votos: votos.filter((v) => v.candidata_id === c.id)
         .map((v) => ({ avaliador: v.login, avaliadorNome: v.avaliador_nome, quesitoId: v.quesito_id, nota: v.nota, justificativa: v.justificativa, assinatura: v.assinatura }))
     }))
@@ -445,7 +633,13 @@ async function getReceivedNotes(body) {
 
 async function getAuditoriaCandidates(body) {
   const candidatas = await getCandidatasDoEvento(body.event_id);
-  return { success: true, candidatas: candidatas.filter((c) => c.status_avaliacao === 'FINALIZADA').map(mapCandidata) };
+  const finalizadas = candidatas.filter((c) => c.status_avaliacao === 'FINALIZADA');
+  const completas = await getCandidatasCompletas(body.event_id);
+  const idsCompletos = new Set(completas.map((c) => c.id));
+  return {
+    success: true,
+    candidatas: finalizadas.map((c) => ({ ...mapCandidata(c), completa: idsCompletos.has(c.id) }))
+  };
 }
 
 async function computeDetalhamento(eventoId, candidataId, regraDescarte) {
@@ -489,10 +683,9 @@ async function reopenAudit(body) {
 
 async function getValidatedTable(body) {
   const evento = await getEvento(body.event_id);
-  const [quesitos, candidatas] = await Promise.all([getQuesitosParaEvento(body.event_id), getCandidatasDoEvento(body.event_id)]);
-  const auditadas = candidatas.filter((c) => c.status_auditoria === 'AUDITADA');
+  const [quesitos, completas] = await Promise.all([getQuesitosParaEvento(body.event_id), getCandidatasCompletas(body.event_id)]);
 
-  const comDetalhe = await Promise.all(auditadas.map(async (c) => ({
+  const comDetalhe = await Promise.all(completas.map(async (c) => ({
     id: c.id, nome: c.nome, cidade: c.cidade, estado: c.estado,
     detalhamento: await computeDetalhamento(body.event_id, c.id, (evento.regras || REGRAS_PADRAO).regraDescarte)
   })));
@@ -502,11 +695,10 @@ async function getValidatedTable(body) {
 
 async function getOfficialRanking(body) {
   const evento = await getEvento(body.event_id);
-  const [quesitos, candidatasTodas, votos] = await Promise.all([
-    getQuesitosParaEvento(body.event_id), getCandidatasDoEvento(body.event_id), getVotosDoEvento(body.event_id)
+  const [quesitos, completas, votos] = await Promise.all([
+    getQuesitosParaEvento(body.event_id), getCandidatasCompletas(body.event_id), getVotosDoEvento(body.event_id)
   ]);
-  const auditadas = candidatasTodas.filter((c) => c.status_auditoria === 'AUDITADA');
-  return { success: true, ranking: gerarRanking(auditadas, votos, quesitos, evento.regras || REGRAS_PADRAO) };
+  return { success: true, ranking: gerarRanking(completas, votos, quesitos, evento.regras || REGRAS_PADRAO) };
 }
 
 async function getScoreboard(body) {
@@ -713,6 +905,17 @@ async function adminListEventos(body) {
 
 async function adminCreateEvento(body) {
   if (!body.cliente_id) return { success: false, message: 'Cliente não informado' };
+
+  const [{ data: cliente }, { count }] = await Promise.all([
+    supabase.from('clientes').select('*').eq('id', body.cliente_id).maybeSingle(),
+    supabase.from('eventos').select('id', { count: 'exact', head: true }).eq('cliente_id', body.cliente_id)
+  ]);
+
+  const limite = cliente && cliente.limite_eventos != null ? cliente.limite_eventos : 5;
+  if ((count || 0) >= limite) {
+    return { success: false, message: `Limite de ${limite} evento(s) atingido para este grupo de clientes. Fale com o master da plataforma para aumentar o limite.` };
+  }
+
   const id = 'evt-' + Date.now();
   const { error } = await supabase.from('eventos').insert({
     id, nome: body.nome, cliente_id: body.cliente_id, status_concurso: 'A_INICIAR',
@@ -745,7 +948,8 @@ async function adminListUsuarios(body) {
     usuarios: (usuarios || []).map((u) => ({
       codigo: u.codigo, nome: u.nome, perfil: u.perfil, ativo: u.ativo, clienteId: u.cliente_id,
       eventos: map[u.codigo] || [], avaliadorIndividual: u.avaliador_individual || false,
-      quesitosPorEvento: mapQuesitos[u.codigo] || {}
+      quesitosPorEvento: mapQuesitos[u.codigo] || {}, temSenha: !!u.senha_hash,
+      comProblema: u.com_problema || false, motivoProblema: u.motivo_problema || ''
     }))
   };
 }
@@ -755,10 +959,13 @@ async function adminSaveUsuario(body) {
   const ativo = body.ativo !== false;
   const avaliadorIndividual = !!body.avaliadorIndividual;
 
-  const { error } = await supabase.from('usuarios').upsert({
+  const payload = {
     codigo, nome: body.nome, perfil: body.perfil, ativo, cliente_id: body.clienteId || body.cliente_id || null,
     avaliador_individual: avaliadorIndividual
-  });
+  };
+  if (body.senha) payload.senha_hash = hashSenha(String(body.senha));
+
+  const { error } = await supabase.from('usuarios').upsert(payload);
   if (error) throw error;
 
   await supabase.from('usuario_eventos').delete().eq('codigo', codigo);
@@ -890,6 +1097,7 @@ async function masterListClientes() {
       const expirada = c.data_validade_licenca && new Date(c.data_validade_licenca) < hoje;
       return {
         id: c.id, nome: c.nome, dataValidadeLicenca: c.data_validade_licenca, ativo: c.ativo,
+        limiteEventos: c.limite_eventos != null ? c.limite_eventos : 5,
         statusLicenca: !c.ativo ? 'DESATIVADO' : (expirada ? 'EXPIRADA' : 'ATIVA')
       };
     })
@@ -899,7 +1107,8 @@ async function masterListClientes() {
 async function masterSaveCliente(body) {
   const id = body.id || ('cli-' + Date.now());
   const { error } = await supabase.from('clientes').upsert({
-    id, nome: body.nome, data_validade_licenca: body.dataValidadeLicenca || null, ativo: body.ativo !== false
+    id, nome: body.nome, data_validade_licenca: body.dataValidadeLicenca || null, ativo: body.ativo !== false,
+    limite_eventos: body.limiteEventos != null ? Number(body.limiteEventos) : 5
   });
   if (error) throw error;
   return { success: true, message: 'Grupo de clientes salvo', id };

@@ -102,11 +102,15 @@
     <button id="btnReiniciar">Reiniciar</button>
   </div>
 
-<script src="assets/js/config.js?v=22"></script>
-<script src="assets/js/mock-data.js?v=22"></script>
-<script src="assets/js/api.js?v=22"></script>
+<script src="assets/js/config.js?v=23"></script>
+<script src="assets/js/mock-data.js?v=23"></script>
+<script src="assets/js/api.js?v=23"></script>
 <script>
-  var EVT = window.APP_CONFIG.EVENT_ID;
+  // O evento vem do link (?evento=ID) — assim cada evento tem seu próprio
+  // link de telão, gerado pelo admin. Se não vier na URL, cai no evento
+  // padrão do config.js (só pra não quebrar links antigos).
+  var params = new URLSearchParams(window.location.search);
+  var EVT = params.get('evento') || window.APP_CONFIG.EVENT_ID;
   var lastRanking = [];
 
   function load() {

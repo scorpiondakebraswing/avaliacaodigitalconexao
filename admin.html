@@ -6,7 +6,7 @@
 <title>Painel do Administrador — Avaliação Digital 2.0</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;700;800&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="assets/css/style.css?v=22">
+<link rel="stylesheet" href="assets/css/style.css?v=23">
 </head>
 <body>
 
@@ -191,6 +191,24 @@
       <label><input type="checkbox" id="userAvaliadorIndividual" style="width:auto;margin-right:8px;" onchange="atualizarVisibilidadeQuesitosPorEvento()">Avaliador de quesitos individuais</label>
       <p class="hint">Se marcado, para cada evento liberado abaixo você escolhe quais quesitos esse avaliador enxerga — ele não verá os demais na tela de votação.</p>
     </div>
+    <div class="form-field" id="avaliadorProblemaField" style="display:none;">
+      <label><input type="checkbox" id="userComProblema" style="width:auto;margin-right:8px;" onchange="document.getElementById('motivoProblemaField').style.display=this.checked?'block':'none';">Avaliador com problemas (indisponível)</label>
+      <div id="motivoProblemaField" style="display:none;margin-top:8px;">
+        <textarea id="userMotivoProblema" placeholder="Explique o motivo (ex.: passou mal, celular sem sinal, etc.)"></textarea>
+        <p class="hint">Ao salvar, o sistema preenche automaticamente a nota mínima do evento em todos os quesitos que esse avaliador ainda não votou, em todas as candidatas — sem sobrescrever votos já dados.</p>
+      </div>
+    </div>
+    <div class="form-field" id="userSenhaField" style="display:none;">
+      <label for="userSenha">Senha</label>
+      <input type="password" id="userSenha" placeholder="Defina uma senha" autocomplete="new-password">
+      <p class="hint" id="userSenhaHint">Obrigatória para administrador, presidente e consultor.</p>
+      <a href="#" id="btnAbrirRedefinirSenha" style="display:none;font-size:12px;margin-top:6px;">Redefinir senha deste usuário</a>
+      <div id="redefinirSenhaBlock" style="display:none;margin-top:10px;padding:12px;border:1px dashed var(--app-border);border-radius:var(--radius-sm);">
+        <label for="novaSenhaRedefinir" style="font-size:11.5px;">Nova senha</label>
+        <input type="password" id="novaSenhaRedefinir" placeholder="Nova senha" autocomplete="new-password" style="margin-bottom:8px;">
+        <button type="button" class="btn btn-secondary btn-sm btn-block" id="btnConfirmarRedefinirSenha">Confirmar nova senha</button>
+      </div>
+    </div>
     <div class="form-field">
       <label>Eventos com acesso liberado</label>
       <div id="userEventosChecklist" class="table-wrap" style="padding:10px 14px;max-height:160px;overflow-y:auto;"></div>
@@ -247,8 +265,8 @@
     <div class="form-field">
       <label for="editNotaTipo">Tipo de nota</label>
       <select id="editNotaTipo">
-        <option value="fracionada">Nota fracionada (7,5 · 8,5 · 9,5 ...)</option>
-        <option value="quebrada">Nota quebrada (7,1 · 7,2 · 7,3 ...)</option>
+        <option value="fracionada">Nota discreta (7,5 · 8,5 · 9,5 ...)</option>
+        <option value="quebrada">Nota contínua (7,1 · 7,2 · 7,3 ...)</option>
       </select>
       <p class="hint">Sempre respeitando a nota mínima e máxima definidas acima.</p>
     </div>
@@ -315,12 +333,12 @@
   </div>
 </div>
 
-<script src="assets/js/config.js?v=22"></script>
-<script src="assets/js/mock-data.js?v=22"></script>
-<script src="assets/js/api.js?v=22"></script>
-<script src="assets/js/session.js?v=22"></script>
-<script src="assets/js/toast.js?v=22"></script>
-<script src="assets/js/shell.js?v=22"></script>
+<script src="assets/js/config.js?v=23"></script>
+<script src="assets/js/mock-data.js?v=23"></script>
+<script src="assets/js/api.js?v=23"></script>
+<script src="assets/js/session.js?v=23"></script>
+<script src="assets/js/toast.js?v=23"></script>
+<script src="assets/js/shell.js?v=23"></script>
 <script>
   var session = Session.require(['admin']);
   if (session) { Shell.init(session); boot(); }
@@ -349,6 +367,12 @@
     loadUsuarios();
     loadQuesitos();
     loadCandidatas();
+
+    // Eventos e Usuários são só listas (sem edição direta na tabela), então
+    // dá pra atualizar sozinho sem risco de apagar o que alguém está
+    // digitando. Quesitos e Candidatas ficam de fora do auto-refresh, já
+    // que a edição ali acontece direto na tabela antes de clicar "Salvar".
+    setInterval(function () { loadEventos(); loadUsuarios(); }, 8000);
   }
 
   function bindModals() {
@@ -364,12 +388,40 @@
       document.getElementById('userPerfil').value = 'avaliador';
       document.getElementById('userAtivo').checked = true;
       document.getElementById('userAvaliadorIndividual').checked = false;
+      document.getElementById('userComProblema').checked = false;
+      document.getElementById('userMotivoProblema').value = '';
+      document.getElementById('motivoProblemaField').style.display = 'none';
+      document.getElementById('userSenha').value = '';
+      document.getElementById('userSenhaHint').textContent = 'Obrigatória para administrador, presidente e consultor.';
+      document.getElementById('btnAbrirRedefinirSenha').style.display = 'none';
+      document.getElementById('redefinirSenhaBlock').style.display = 'none';
       document.getElementById('btnAbrirTrocaCodigo').style.display = 'none';
       document.getElementById('trocarCodigoBlock').style.display = 'none';
       atualizarVisibilidadeFlagIndividual();
       renderUserEventosChecklist([], {});
       document.getElementById('modalUsuario').dataset.editingCodigo = '';
       document.getElementById('modalUsuario').classList.add('is-open');
+    });
+
+    document.getElementById('btnAbrirRedefinirSenha').addEventListener('click', function (e) {
+      e.preventDefault();
+      var bloco = document.getElementById('redefinirSenhaBlock');
+      bloco.style.display = bloco.style.display === 'none' ? 'block' : 'none';
+    });
+
+    document.getElementById('btnConfirmarRedefinirSenha').addEventListener('click', function () {
+      var codigo = document.getElementById('modalUsuario').dataset.editingCodigo;
+      var novaSenha = document.getElementById('novaSenhaRedefinir').value;
+      if (!novaSenha || novaSenha.length < 4) { Toast.error('A senha precisa ter pelo menos 4 caracteres.'); return; }
+      Api.call('redefinir_senha', { codigo: codigo, novaSenha: novaSenha, cliente_id: session.clienteId, usuario: session.nome, perfil: 'ADMIN' }).then(function (res) {
+        if (res.success) {
+          Toast.success(res.message);
+          document.getElementById('novaSenhaRedefinir').value = '';
+          document.getElementById('redefinirSenhaBlock').style.display = 'none';
+        } else {
+          Toast.error(res.message);
+        }
+      });
     });
 
     document.getElementById('btnSalvarUsuario').addEventListener('click', function () {
@@ -379,6 +431,9 @@
       var perfil = document.getElementById('userPerfil').value;
       var ativo = document.getElementById('userAtivo').checked;
       var avaliadorIndividual = document.getElementById('userAvaliadorIndividual').checked;
+      var comProblema = document.getElementById('userComProblema').checked;
+      var motivoProblema = document.getElementById('userMotivoProblema').value.trim();
+      var senha = document.getElementById('userSenha').value;
       var eventosSelecionados = Array.prototype.slice.call(document.querySelectorAll('.uc-evento-cb:checked')).map(function (cb) { return cb.value; });
 
       var quesitosPorEvento = {};
@@ -390,14 +445,39 @@
       }
 
       if (!codigo || !nome) { Toast.error('Preencha código e nome.'); return; }
+      if (perfil !== 'avaliador' && !editando && !senha) { Toast.error('Defina uma senha para este perfil.'); return; }
+      if (comProblema && !motivoProblema) { Toast.error('Informe o motivo do avaliador estar com problemas.'); return; }
 
-      Api.call('admin_save_usuario', {
+      var payload = {
         codigo: codigo, nome: nome, perfil: perfil, eventos: eventosSelecionados, ativo: ativo, cliente_id: session.clienteId,
         avaliadorIndividual: avaliadorIndividual, quesitosPorEvento: quesitosPorEvento
-      }).then(function (res) {
-        res.success ? Toast.success(res.message) : Toast.error(res.message);
-        document.getElementById('modalUsuario').classList.remove('is-open');
-        loadUsuarios();
+      };
+      if (senha) payload.senha = senha;
+
+      Api.call('admin_save_usuario', payload).then(function (res) {
+        if (!res.success) { Toast.error(res.message); return; }
+
+        if (perfil !== 'avaliador') {
+          Toast.success(res.message);
+          document.getElementById('modalUsuario').classList.remove('is-open');
+          loadUsuarios();
+          return;
+        }
+
+        // Se for avaliador, aplica (ou remove) o status "com problemas",
+        // preenchendo nota mínima automaticamente em cada evento liberado.
+        var eventosParaAplicar = eventosSelecionados.length ? eventosSelecionados : [null];
+        Promise.all(eventosParaAplicar.map(function (eid) {
+          return Api.call('marcar_avaliador_problema', {
+            event_id: eid, codigo: codigo, motivo: motivoProblema, comProblema: comProblema,
+            nomeAvaliador: nome, usuario: session.nome, perfil: 'ADMIN'
+          });
+        })).then(function (resultados) {
+          var ultimaMsg = resultados[resultados.length - 1];
+          Toast.success(ultimaMsg && ultimaMsg.message ? ultimaMsg.message : res.message);
+          document.getElementById('modalUsuario').classList.remove('is-open');
+          loadUsuarios();
+        });
       });
     });
 
@@ -450,7 +530,13 @@
   window.atualizarVisibilidadeFlagIndividual = function () {
     var ehAvaliador = document.getElementById('userPerfil').value === 'avaliador';
     document.getElementById('avaliadorIndividualField').style.display = ehAvaliador ? 'block' : 'none';
-    if (!ehAvaliador) document.getElementById('userAvaliadorIndividual').checked = false;
+    document.getElementById('avaliadorProblemaField').style.display = ehAvaliador ? 'block' : 'none';
+    document.getElementById('userSenhaField').style.display = ehAvaliador ? 'none' : 'block';
+    if (!ehAvaliador) {
+      document.getElementById('userAvaliadorIndividual').checked = false;
+      document.getElementById('userComProblema').checked = false;
+      document.getElementById('motivoProblemaField').style.display = 'none';
+    }
     atualizarVisibilidadeQuesitosPorEvento();
   };
 
@@ -490,10 +576,24 @@
   function statusActions(e) {
     var btns = [];
     btns.push('<button class="btn btn-secondary btn-sm" onclick="abrirEdicaoEvento(\'' + e.id + '\')">Editar</button>');
+    btns.push('<button class="btn btn-ghost btn-sm" onclick="copiarLinkTelao(\'' + e.id + '\')">🖥️ Link do telão</button>');
     if (e.statusConcurso !== 'EM_ANDAMENTO') btns.push('<button class="btn btn-secondary btn-sm" onclick="setEventoStatus(\'' + e.id + '\',\'EM_ANDAMENTO\')">Ativar</button>');
     if (e.statusConcurso !== 'FINALIZADO') btns.push('<button class="btn btn-ghost btn-sm" onclick="setEventoStatus(\'' + e.id + '\',\'FINALIZADO\')">Encerrar</button>');
     return btns.join(' ');
   }
+
+  window.copiarLinkTelao = function (eventoId) {
+    var link = window.location.origin + window.location.pathname.replace(/admin\.html$/, '') + 'telao.html?evento=' + eventoId;
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(link).then(function () {
+        Toast.success('Link do telão copiado! Cole no navegador do computador ligado ao telão.');
+      }, function () {
+        window.prompt('Copie o link do telão:', link);
+      });
+    } else {
+      window.prompt('Copie o link do telão:', link);
+    }
+  };
 
   window.abrirEdicaoEvento = function (eventoId) {
     Promise.all([
@@ -591,6 +691,7 @@
       body.innerHTML = usuariosCache.map(function (u) {
         var ativo = u.ativo !== false;
         var statusBadge = ativo ? '<span class="badge badge-active"><span class="badge-dot"></span>Ativo</span>' : '<span class="badge badge-danger">Inativo</span>';
+        if (u.comProblema) statusBadge += ' <span class="badge badge-warn" title="' + (u.motivoProblema || '').replace(/"/g, '') + '">⚠ Com problemas</span>';
         var toggleBtn = ativo
           ? '<button class="btn btn-ghost btn-sm" onclick="alternarStatusUsuario(\'' + u.codigo + '\')">Desativar</button>'
           : '<button class="btn btn-secondary btn-sm" onclick="alternarStatusUsuario(\'' + u.codigo + '\')">Ativar</button>';
@@ -623,6 +724,14 @@
     document.getElementById('userPerfil').value = u.perfil;
     document.getElementById('userAtivo').checked = u.ativo !== false;
     document.getElementById('userAvaliadorIndividual').checked = !!u.avaliadorIndividual;
+    document.getElementById('userComProblema').checked = !!u.comProblema;
+    document.getElementById('userMotivoProblema').value = u.motivoProblema || '';
+    document.getElementById('motivoProblemaField').style.display = u.comProblema ? 'block' : 'none';
+    document.getElementById('userSenha').value = '';
+    document.getElementById('userSenhaHint').textContent = 'Deixe em branco para manter a senha atual.';
+    document.getElementById('btnAbrirRedefinirSenha').style.display = (u.perfil !== 'avaliador') ? 'block' : 'none';
+    document.getElementById('redefinirSenhaBlock').style.display = 'none';
+    document.getElementById('novaSenhaRedefinir').value = '';
     document.getElementById('btnAbrirTrocaCodigo').style.display = 'block';
     document.getElementById('trocarCodigoBlock').style.display = 'none';
     document.getElementById('novoCodigoAcesso').value = '';

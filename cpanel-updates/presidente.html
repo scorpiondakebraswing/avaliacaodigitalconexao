@@ -121,12 +121,12 @@
           <div class="card__head">
             <div>
               <h2 class="card__title">Candidatas finalizadas</h2>
-              <p class="card__desc">Audite as notas recebidas antes de liberar para o ranking oficial.</p>
+              <p class="card__desc">Assim que a avaliação é encerrada e não há questionamento pendente, a candidata já entra automaticamente em Notas Validadas e no Ranking Oficial.</p>
             </div>
           </div>
           <div class="table-wrap">
             <table>
-              <thead><tr><th>Candidata</th><th>Cidade</th><th>Estado</th><th>Auditoria</th><th>Ações</th></tr></thead>
+              <thead><tr><th>Candidata</th><th>Cidade</th><th>Estado</th><th>Status</th></tr></thead>
               <tbody id="finalizadasBody"></tbody>
             </table>
           </div>
@@ -211,18 +211,6 @@
 </div>
 
 <!-- ===================== MODAL: auditoria de candidata ===================== -->
-<div class="modal-overlay" id="modalAuditoria">
-  <div class="modal">
-    <div class="modal__head">
-      <h2 class="card__title" id="auditTitulo">Auditoria</h2>
-      <button class="modal__close" data-close-modal="modalAuditoria">&times;</button>
-    </div>
-    <div id="auditContent"></div>
-    <p class="hint" id="auditJaFeitaAviso" style="display:none;margin-top:12px;">Esta candidata já está auditada. Se precisar revisar, use "Refazer auditoria" na lista de candidatas finalizadas.</p>
-    <button class="btn btn-success btn-block" id="btnFinalizarAuditoria" style="margin-top:16px;">Marcar como auditada</button>
-  </div>
-</div>
-
 <!-- ===================== MODAL: encerrar concurso ===================== -->
 <div class="modal-overlay" id="modalEncerramento">
   <div class="modal">
@@ -235,12 +223,12 @@
   </div>
 </div>
 
-<script src="assets/js/config.js?v=22"></script>
-<script src="assets/js/mock-data.js?v=22"></script>
-<script src="assets/js/api.js?v=22"></script>
-<script src="assets/js/session.js?v=22"></script>
-<script src="assets/js/toast.js?v=22"></script>
-<script src="assets/js/shell.js?v=22"></script>
+<script src="assets/js/config.js?v=23"></script>
+<script src="assets/js/mock-data.js?v=23"></script>
+<script src="assets/js/api.js?v=23"></script>
+<script src="assets/js/session.js?v=23"></script>
+<script src="assets/js/toast.js?v=23"></script>
+<script src="assets/js/shell.js?v=23"></script>
 <script>
   var session = Session.require(['presidente', 'admin']);
   if (session) {
@@ -389,8 +377,9 @@
         '<div style="display:flex;flex-wrap:wrap;gap:8px;">' +
         '<button class="btn btn-secondary btn-sm" onclick="actInterromper()" ' + (interrompido ? 'disabled' : '') + '>Interromper</button>' +
         '<button class="btn ' + (interrompido ? 'btn-primary blink-alert-btn' : 'btn-secondary') + ' btn-sm" onclick="actRetomar()">' + (interrompido ? '▶ Retomar avaliação' : 'Retomar') + '</button>' +
-        '<button class="btn btn-primary btn-sm" onclick="actEncerrar(\'' + c.id + '\')">Encerrar avaliação</button>' +
+        '<button class="btn btn-primary btn-sm btn-hold-confirm" data-hold-action="actEncerrar" data-hold-id="' + c.id + '">Segure 5s p/ encerrar avaliação</button>' +
         '</div>';
+      ativarBotoesSeguraConfirma(block);
     });
   }
 
@@ -408,6 +397,7 @@
         '<td>' + acoesFila(c) + '</td>' +
         '</tr>';
     }).join('');
+    ativarBotoesSeguraConfirma(body);
   }
 
   function statusBadge(c) {
@@ -432,12 +422,56 @@
       btns.push('<button class="btn btn-ghost btn-sm" onclick="actFlag(\'' + c.id + '\',\'DESISTENTE\')">Desistente</button>');
       btns.push('<button class="btn btn-ghost btn-sm" onclick="actFlag(\'' + c.id + '\',\'DESCLASSIFICADA\')">Desclassificar</button>');
     } else if (c.statusAvaliacao === 'EM_AVALIACAO') {
-      btns.push('<button class="btn btn-primary btn-sm" onclick="actEncerrar(\'' + c.id + '\')">Encerrar</button>');
+      btns.push('<button class="btn btn-primary btn-sm btn-hold-confirm" data-hold-action="actEncerrar" data-hold-id="' + c.id + '">Segure 5s p/ encerrar</button>');
       btns.push('<button class="btn btn-ghost btn-sm" onclick="actVoltarFila(\'' + c.id + '\')">Devolver à fila</button>');
     } else if (c.statusAvaliacao === 'FINALIZADA') {
-      btns.push('<span style="color:var(--ink-faint);font-size:12.5px;">veja em "Candidatas finalizadas"</span>');
+      btns.push('<button class="btn btn-ghost btn-sm" onclick="actReabrirAvaliacao(\'' + c.id + '\')">Reabrir avaliação</button>');
     }
     return btns.join(' ');
+  }
+
+  window.actReabrirAvaliacao = function (id) {
+    Api.call('reabrir_avaliacao', { event_id: EVT, id_candidata: id, usuario: session.nome, perfil: 'PRESIDENTE DE MESA' }).then(function (res) {
+      res.success ? Toast.success(res.message) : Toast.error(res.message);
+      loadAndamento(); loadFinalizadas(); loadValidadas(); loadRanking();
+    });
+  };
+
+  // ---------------- botão "segure para confirmar" (evita clique acidental) ----------------
+  function ativarBotoesSeguraConfirma(container) {
+    (container || document).querySelectorAll('.btn-hold-confirm').forEach(function (btn) {
+      if (btn._holdBound) return;
+      btn._holdBound = true;
+
+      var barra = document.createElement('span');
+      barra.className = 'hold-progress';
+      btn.appendChild(barra);
+
+      var timer = null;
+
+      function iniciar(e) {
+        e.preventDefault();
+        barra.style.transition = 'width 5s linear';
+        requestAnimationFrame(function () { barra.style.width = '100%'; });
+        timer = setTimeout(function () {
+          var acao = btn.dataset.holdAction;
+          var id = btn.dataset.holdId;
+          cancelar();
+          if (window[acao]) window[acao](id);
+        }, 5000);
+      }
+
+      function cancelar() {
+        clearTimeout(timer);
+        barra.style.transition = 'none';
+        barra.style.width = '0%';
+      }
+
+      btn.addEventListener('pointerdown', iniciar);
+      btn.addEventListener('pointerup', cancelar);
+      btn.addEventListener('pointerleave', cancelar);
+      btn.addEventListener('pointercancel', cancelar);
+    });
   }
 
   window.actIniciar = function (id) {
@@ -490,57 +524,15 @@
     Api.call('get_auditoria_candidates', { event_id: EVT }).then(function (res) {
       var body = document.getElementById('finalizadasBody');
       var lista = res.candidatas || [];
-      if (!lista.length) { body.innerHTML = '<tr><td colspan="5" class="table-empty">Nenhuma candidata finalizada ainda.</td></tr>'; return; }
+      if (!lista.length) { body.innerHTML = '<tr><td colspan="4" class="table-empty">Nenhuma candidata finalizada ainda.</td></tr>'; return; }
       body.innerHTML = lista.map(function (c) {
-        var auditada = c.statusAuditoria === 'AUDITADA';
-        var botaoRefazer = auditada
-          ? ' <button class="btn btn-ghost btn-sm" onclick="refazerAuditoria(\'' + c.id + '\',\'' + c.nome.replace(/'/g, "") + '\')">Refazer auditoria</button>'
-          : '';
-        return '<tr><td>' + c.nome + '</td><td>' + (c.cidade || '') + '</td><td>' + c.estado + '</td><td>' +
-          (auditada ? '<span class="badge badge-active">Auditada</span>' : '<span class="badge badge-warn">Pendente</span>') +
-          '</td><td><button class="btn btn-secondary btn-sm" onclick="abrirAuditoria(\'' + c.id + '\',\'' + c.nome.replace(/'/g, "") + '\',' + auditada + ')">Ver auditoria</button>' + botaoRefazer + '</td></tr>';
+        var statusHtml = c.completa
+          ? '<span class="badge badge-active">✓ No ranking oficial</span>'
+          : '<span class="badge badge-warn">Aguardando resposta de questionamento</span>';
+        return '<tr><td>' + c.nome + '</td><td>' + (c.cidade || '') + '</td><td>' + c.estado + '</td><td>' + statusHtml + '</td></tr>';
       }).join('');
     });
   }
-
-  window.refazerAuditoria = function (id, nome) {
-    if (!window.confirm('Reabrir a auditoria de "' + nome + '"? Ela vai sair do ranking oficial e das notas validadas até ser auditada de novo.')) return;
-    Api.call('reopen_audit', { event_id: EVT, id_candidata: id, usuario: session.nome, perfil: 'PRESIDENTE DE MESA' }).then(function (res) {
-      res.success ? Toast.success(res.message) : Toast.error(res.message);
-      loadFinalizadas(); loadValidadas(); loadRanking();
-    });
-  };
-
-  var auditCandidataAtual = null;
-
-  window.abrirAuditoria = function (id, nome, jaAuditada) {
-    auditCandidataAtual = id;
-    document.getElementById('auditTitulo').textContent = 'Auditoria — ' + nome;
-    document.getElementById('btnFinalizarAuditoria').style.display = jaAuditada ? 'none' : 'block';
-    Api.call('get_candidate_audit', { event_id: EVT, id_candidata: id }).then(function (res) {
-      var html = (res.detalhamento || []).map(function (q) {
-        var rows = q.votos.map(function (v) {
-          var cor = v.descartada ? 'var(--coral)' : 'var(--green-ok)';
-          var estiloNota = v.descartada ? 'color:' + cor + ';text-decoration:line-through;' : 'color:' + cor + ';font-weight:600;';
-          return '<tr>' +
-            '<td>' + v.avaliador + '</td><td style="' + estiloNota + '">' + Number(v.nota).toFixed(1) + '</td><td style="font-size:12px;">' + v.justificativa + '</td>' +
-            '<td>' + (v.descartada ? '<span class="badge badge-danger">Descartada</span>' : '<span class="badge badge-active">Considerada</span>') + '</td></tr>';
-        }).join('');
-        return '<h3 style="font-size:14px;margin:16px 0 8px;">' + q.quesito + '</h3><div class="table-wrap"><table><thead><tr><th>Avaliador</th><th>Nota</th><th>Justificativa</th><th></th></tr></thead><tbody>' + rows + '</tbody></table></div>';
-      }).join('');
-      document.getElementById('auditContent').innerHTML = html || '<p class="card__desc">Nenhum voto registrado.</p>';
-      document.getElementById('modalAuditoria').classList.add('is-open');
-    });
-  };
-
-  document.getElementById('btnFinalizarAuditoria').addEventListener('click', function () {
-    if (!auditCandidataAtual) return;
-    Api.call('finalize_audit', { event_id: EVT, id_candidata: auditCandidataAtual, usuario: session.nome, perfil: 'PRESIDENTE DE MESA' }).then(function (res) {
-      res.success ? Toast.success(res.message) : Toast.error(res.message);
-      document.getElementById('modalAuditoria').classList.remove('is-open');
-      loadFinalizadas(); loadRanking(); loadValidadas();
-    });
-  });
 
   /* ---------------- NOTAS RECEBIDAS ---------------- */
 
@@ -628,7 +620,7 @@
       };
 
       container.innerHTML = candidatas.map(function (c) {
-        var aberto = gruposRecebidasEstado.hasOwnProperty(c.id) ? gruposRecebidasEstado[c.id] : (c.statusAuditoria !== 'AUDITADA');
+        var aberto = gruposRecebidasEstado.hasOwnProperty(c.id) ? gruposRecebidasEstado[c.id] : (c.statusAvaliacao !== 'FINALIZADA');
         var conteudoId = 'recebidasGrupo-' + c.id;
 
         var rows = c.votos.map(function (v) {
@@ -640,7 +632,7 @@
 
         return '<div style="margin:18px 0 10px;border-top:1px solid var(--app-border);padding-top:14px;">' +
           '<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;cursor:pointer;" onclick="toggleGrupoRecebidas(\'' + c.id + '\')">' +
-          '<h3 style="font-size:15px;margin:0;">' + (aberto ? '▾' : '▸') + ' ' + c.nome + ' <span style="font-weight:500;color:var(--ink-faint);font-size:12px;">— ' + (c.cidade || '') + '/' + c.estado + (c.statusAuditoria === 'AUDITADA' ? ' · auditado' : '') + '</span></h3>' +
+          '<h3 style="font-size:15px;margin:0;">' + (aberto ? '▾' : '▸') + ' ' + c.nome + ' <span style="font-weight:500;color:var(--ink-faint);font-size:12px;">— ' + (c.cidade || '') + '/' + c.estado + (c.statusAvaliacao === 'FINALIZADA' ? ' · finalizado' : '') + '</span></h3>' +
           '<button class="btn btn-secondary btn-sm" onclick="event.stopPropagation();gerarRelatorioCandidata(\'' + c.id + '\')">Gerar relatório (PDF)</button>' +
           '</div>' +
           '<div id="' + conteudoId + '" style="display:' + (aberto ? 'block' : 'none') + ';margin-top:10px;">' +

@@ -135,6 +135,12 @@
   @keyframes spin{ to{ transform:rotate(360deg); } }
 
   .help-link{ display:block; margin-top:16px; font-size:12.5px; color:var(--ink-soft); text-decoration:none; border-bottom:1px dashed transparent; }
+
+  .mode-btn{
+    flex:1; padding:9px 8px; font-size:11.5px; font-weight:700; border-radius:8px;
+    border:1.5px solid var(--paper-line); background:#fff; color:var(--ink-soft); cursor:pointer;
+  }
+  .mode-btn.is-active{ background:var(--bg-deep); border-color:var(--bg-deep); color:var(--paper); }
   .help-link:hover{ border-color:var(--ink-soft); }
 
   .demo-note{
@@ -179,12 +185,21 @@
         </div>
 
         <h1 class="flagcard__title">Entrar no sistema</h1>
-        <p class="flagcard__subtitle">Digite o código de acesso que a organização do seu evento te entregou.</p>
+        <p class="flagcard__subtitle" id="loginSubtitle">Digite o código de acesso que a organização do seu evento te entregou.</p>
+
+        <div style="display:flex;gap:8px;margin-bottom:18px;">
+          <button type="button" class="mode-btn is-active" id="modoAvaliadorBtn" onclick="selecionarModo('avaliador')">Sou avaliador</button>
+          <button type="button" class="mode-btn" id="modoOutroBtn" onclick="selecionarModo('outro')">Admin / Presidente / Consultor</button>
+        </div>
 
         <form id="loginForm" novalidate>
           <div class="field">
-            <label for="codeInput">Código de acesso</label>
+            <label for="codeInput" id="codeInputLabel">Código de acesso</label>
             <input type="text" id="codeInput" class="code-input" placeholder="EX: AVAL-2027" autocomplete="off" autocapitalize="characters" spellcheck="false">
+          </div>
+          <div class="field" id="senhaField" style="display:none;">
+            <label for="senhaInput">Senha</label>
+            <input type="password" id="senhaInput" class="code-input" placeholder="••••••••" autocomplete="current-password" style="text-transform:none;letter-spacing:normal;font-family:'Inter',sans-serif;font-size:16px;">
           </div>
           <p class="field-msg" id="fieldMsg" role="status"></p>
 
@@ -205,10 +220,10 @@
 
   <p class="footer">Feito para celebrar o São João com <strong>transparência, segurança e ética</strong>.</p>
 
-  <script src="assets/js/config.js?v=22"></script>
-  <script src="assets/js/mock-data.js?v=22"></script>
-  <script src="assets/js/api.js?v=22"></script>
-  <script src="assets/js/session.js?v=22"></script>
+  <script src="assets/js/config.js?v=23"></script>
+  <script src="assets/js/mock-data.js?v=23"></script>
+  <script src="assets/js/api.js?v=23"></script>
+  <script src="assets/js/session.js?v=23"></script>
   <script>
     // garland
     var garlandRow = document.getElementById('garlandRow');
@@ -268,9 +283,25 @@
       msg.textContent = '';
     });
 
+    var modoAtual = 'avaliador';
+
+    window.selecionarModo = function (modo) {
+      modoAtual = modo;
+      document.getElementById('modoAvaliadorBtn').classList.toggle('is-active', modo === 'avaliador');
+      document.getElementById('modoOutroBtn').classList.toggle('is-active', modo === 'outro');
+      document.getElementById('senhaField').style.display = modo === 'outro' ? 'block' : 'none';
+      document.getElementById('codeInputLabel').textContent = modo === 'outro' ? 'Código de usuário' : 'Código de acesso';
+      document.getElementById('loginSubtitle').textContent = modo === 'outro'
+        ? 'Entre com seu código de usuário e senha.'
+        : 'Digite o código de acesso que a organização do seu evento te entregou.';
+      msg.textContent = '';
+      input.classList.remove('has-error');
+    };
+
     form.addEventListener('submit', function (e) {
       e.preventDefault();
       var code = input.value.trim().toUpperCase();
+      var senha = document.getElementById('senhaInput').value;
 
       if (!code) {
         input.classList.add('has-error');
@@ -279,11 +310,17 @@
         return;
       }
 
+      if (modoAtual === 'outro' && !senha) {
+        msg.textContent = 'Informe a senha.';
+        document.getElementById('senhaInput').focus();
+        return;
+      }
+
       btn.disabled = true;
       btn.classList.add('is-loading');
       msg.textContent = '';
 
-      Api.call('login', { codigo: code }).then(function (res) {
+      Api.call('login', { codigo: code, senha: senha }).then(function (res) {
         btn.disabled = false;
         btn.classList.remove('is-loading');
 
