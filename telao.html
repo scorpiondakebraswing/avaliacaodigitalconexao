@@ -63,6 +63,7 @@
     background:rgba(63,174,112,0.22); border:1px solid rgba(63,174,112,0.5);
     color:#a8f0c6; font-size:12px; font-weight:700; padding:5px 12px; border-radius:999px;
   }
+  .destaque-chip.is-destaque{ background:rgba(227,165,61,0.22); border-color:rgba(227,165,61,0.55); color:#ffe4a8; }
   .desq-chip{ background:rgba(226,96,74,0.25); border:1px solid rgba(226,96,74,0.6); color:#ffd9d0; font-size:12px; font-weight:700; padding:5px 12px; border-radius:999px; }
 
   .pendente-list{ display:flex; flex-wrap:wrap; gap:8px; }
@@ -147,6 +148,11 @@
   }
   .reveal-desempate-nota{ font-size:12px; color:rgba(250,245,231,0.65); margin-top:10px; }
 
+  .reveal-premio-titulo{
+    font-family:'Baloo 2', sans-serif; font-weight:800; font-size:20px; color:var(--gold);
+    text-align:center; margin-bottom:14px;
+  }
+
   /* ===================== CONTROLES (equipe) ===================== */
   .controls{
     position:fixed; bottom:16px; right:16px;
@@ -185,9 +191,9 @@
     <button id="btnReiniciar">Reiniciar</button>
   </div>
 
-<script src="assets/js/config.js?v=26"></script>
-<script src="assets/js/mock-data.js?v=26"></script>
-<script src="assets/js/api.js?v=26"></script>
+<script src="assets/js/config.js?v=27"></script>
+<script src="assets/js/mock-data.js?v=27"></script>
+<script src="assets/js/api.js?v=27"></script>
 <script>
   var params = new URLSearchParams(window.location.search);
   var EVT = params.get('evento') || window.APP_CONFIG.EVENT_ID;
@@ -235,9 +241,16 @@
     host.innerHTML = partes.join('');
   }
 
+  function montarChipsDestaque(lista) {
+    return lista.map(function (q) {
+      var ehDestaque = q.familia === 'destaque';
+      return '<span class="destaque-chip' + (ehDestaque ? ' is-destaque' : '') + '">' + (ehDestaque ? '👑 ' : '★ ') + q.nome + '</span>';
+    }).join('');
+  }
+
   function montarCardAtivo(c) {
     var chips = c.destaqueQuesitos.length
-      ? c.destaqueQuesitos.map(function (q) { return '<span class="destaque-chip">★ ' + q + '</span>'; }).join('')
+      ? montarChipsDestaque(c.destaqueQuesitos)
       : '<span style="color:rgba(250,245,231,0.5);font-size:12.5px;">Aguardando notas...</span>';
     return '<div class="auto-card is-ativa"><div><div class="auto-card__nome">' + c.nome + '</div>' +
       '<div class="auto-card__sub">' + (c.cidade || '') + '/' + c.estado + '</div></div>' +
@@ -246,7 +259,7 @@
 
   function montarCardApresentado(c) {
     var chips = c.destaqueQuesitos.length
-      ? c.destaqueQuesitos.map(function (q) { return '<span class="destaque-chip">★ ' + q + '</span>'; }).join('')
+      ? montarChipsDestaque(c.destaqueQuesitos)
       : '<span style="color:rgba(250,245,231,0.4);font-size:12px;">Sem notas ainda</span>';
     return '<div class="auto-card"><div><div class="auto-card__nome">' + c.nome + '</div>' +
       '<div class="auto-card__sub">' + (c.cidade || '') + '/' + c.estado + '</div></div>' +
@@ -260,9 +273,15 @@
   // efeito clássico de contagem regressiva) — são coisas independentes.
   function montarSequenciaExibicao(res) {
     var totalDesq = (res.desqualificados || []).length;
+    var totalDestaques = (res.rankingsDestaques || []).length;
 
     var itensDesq = (res.desqualificados || []).map(function (d, idx) {
       return { tipo: 'desqualificado', dados: d, revealOrder: idx };
+    });
+
+    var itensDestaque = (res.rankingsDestaques || []).map(function (rd, idx) {
+      var vencedores = (rd.ranking && rd.ranking.length) ? rd.ranking[0] : [];
+      return { tipo: 'destaque-premio', grupo: rd.grupo, quesitos: rd.quesitos, vencedores: vencedores, revealOrder: totalDesq + idx };
     });
 
     var posicaoAtual = 1;
@@ -272,9 +291,10 @@
       return { tipo: 'ranking', posicao: pos, membros: grupo };
     });
     var n = gruposComPosicao.length;
-    gruposComPosicao.forEach(function (g, idx) { g.revealOrder = totalDesq + (n - 1 - idx); });
+    gruposComPosicao.forEach(function (g, idx) { g.revealOrder = totalDesq + totalDestaques + (n - 1 - idx); });
 
-    return itensDesq.concat(gruposComPosicao);
+    // ordem de exibição: desqualificados → prêmios de destaque → ranking geral (melhor no topo)
+    return itensDesq.concat(itensDestaque).concat(gruposComPosicao);
   }
 
   var ultimaChaveRevelacao = null;
@@ -294,7 +314,9 @@
     }
 
     var chave = sequencia.map(function (item) {
-      return item.tipo === 'desqualificado' ? 'D:' + item.dados.id : 'G:' + item.membros.map(function (m) { return m.id; }).join(',');
+      if (item.tipo === 'desqualificado') return 'D:' + item.dados.id;
+      if (item.tipo === 'destaque-premio') return 'P:' + item.grupo + ':' + item.vencedores.map(function (m) { return m.id; }).join(',');
+      return 'G:' + item.membros.map(function (m) { return m.id; }).join(',');
     }).join('|');
 
     if (chave !== ultimaChaveRevelacao) {
@@ -328,6 +350,36 @@
           '<div class="reveal-row__nome"><strong class="js-nome" data-real="' + escAttr(d.nome) + '">?????</strong>' +
           '<span class="js-info" data-real="' + escAttr(infoReal) + '"></span></div>' +
           '</div></div>';
+      }
+
+      if (item.tipo === 'destaque-premio') {
+        var vencedores = item.vencedores || [];
+        if (!vencedores.length) {
+          return '<div class="reveal-row" data-reveal-order="' + item.revealOrder + '">' +
+            '<div class="reveal-premio-titulo">🏆 Melhor ' + item.grupo + '</div>' +
+            '<p class="empty" style="padding:0;">Ainda sem notas suficientes nesta categoria.</p></div>';
+        }
+        var empatadosP = vencedores.length > 1;
+        var blocosVencedores = vencedores.map(function (v) {
+          var quesitosHtml = item.quesitos.map(function (q) {
+            return '<div class="reveal-detalhe__item"><div class="q-nome">' + q.nome + '</div><div class="q-nota" data-q="' + q.id + '">' + (v.detalhamento[q.id] || 0) + '</div></div>';
+          }).join('');
+          var infoReal = (v.cidade || '') + '/' + v.estado;
+          return '<div class="reveal-membro" data-membro="premio-' + v.id + '" style="' + (empatadosP ? 'margin-bottom:14px;padding-bottom:14px;border-bottom:1px dashed rgba(255,255,255,0.15);' : '') + '">' +
+            '<div class="reveal-row__head">' +
+            '<div class="reveal-row__pos">🏆</div>' +
+            '<div class="reveal-row__nome"><strong class="js-nome" data-real="' + escAttr(v.nome) + '">?????</strong><span class="js-info" data-real="' + escAttr(infoReal) + '"></span></div>' +
+            '<div class="reveal-row__total js-total" data-total="premio-' + v.id + '" data-real="' + v.total + '">—</div>' +
+            '</div>' +
+            '<div class="reveal-detalhe"><div class="reveal-detalhe__grid">' + quesitosHtml + '</div></div>' +
+            '</div>';
+        }).join('');
+
+        return '<div class="reveal-row top1" data-reveal-order="' + item.revealOrder + '">' +
+          '<div class="reveal-premio-titulo">🏆 Melhor ' + item.grupo + '</div>' +
+          (empatadosP ? '<div class="reveal-empate-badge">🤝 Empate</div>' : '') +
+          blocosVencedores +
+          '</div>';
       }
 
       var classePosicao = item.posicao === 1 ? 'top1' : item.posicao === 2 ? 'top2' : item.posicao === 3 ? 'top3' : (item.posicao <= 5 ? 'top5' : '');

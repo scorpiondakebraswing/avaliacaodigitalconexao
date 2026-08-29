@@ -893,6 +893,9 @@ async function finalizarConcurso(body) {
 // quesitos ela está se destacando (maior soma) — usado tanto pro grupo
 // que está se apresentando agora quanto pros que já se apresentaram, no
 // modo automático do telão.
+// Considera QUALQUER quesito (de quadrilha ou de destaque, sem distinção)
+// pra achar em qual(is) o grupo teve sua maior soma — inclui o subquesito
+// de destaque como candidato normal ao "destaque do grupo".
 function calcularDestaqueQuesitos(candidataId, votos, quesitos, regraDescarte) {
   const detalhamento = {};
   quesitos.forEach((q) => {
@@ -902,11 +905,29 @@ function calcularDestaqueQuesitos(candidataId, votos, quesitos, regraDescarte) {
   const valores = Object.values(detalhamento);
   const total = valores.reduce((a, b) => a + b, 0);
   const max = valores.length ? Math.max(...valores) : 0;
-  const destaqueQuesitos = max > 0 ? quesitos.filter((q) => detalhamento[q.id] === max).map((q) => q.nomeExibicao) : [];
+  const destaqueQuesitos = max > 0
+    ? quesitos.filter((q) => detalhamento[q.id] === max).map((q) => ({ nome: q.nomeExibicao, familia: q.familia }))
+    : [];
   return { total, detalhamento, destaqueQuesitos };
 }
 
-// Agrupa o ranking oficial em "passos de revelação" — candidatas
+// Ranking restrito a um único grupo de destaque (ex.: só os subquesitos
+// de "RAINHA"), usado pra premiar o melhor de cada categoria antes de
+// começar a contagem regressiva do ranking geral.
+function calcularRankingsDestaques(candidatas, votos, quesitos, regras) {
+  const porGrupo = {};
+  quesitos.filter((q) => q.familia === 'destaque').forEach((q) => {
+    const g = q.grupoPai || '(sem grupo)';
+    porGrupo[g] = porGrupo[g] || [];
+    porGrupo[g].push(q);
+  });
+
+  return Object.keys(porGrupo).map((grupoNome) => {
+    const quesitosDoGrupo = porGrupo[grupoNome];
+    const ranking = gerarRanking(candidatas, votos, quesitosDoGrupo, regras);
+    return { grupo: grupoNome, quesitos: quesitosDoGrupo, ranking: agruparEmpates(ranking, quesitosDoGrupo) };
+  });
+}
 // realmente empatadas (mesmo total E mesma nota em cada quesito, ou
 // seja, nenhum critério de desempate conseguiu separar) entram juntas
 // no mesmo passo, pra serem reveladas ao mesmo tempo no telão.
@@ -935,6 +956,8 @@ async function getTelaoNotes(body) {
 
   const rankingOficial = gerarRanking(completas, votos, quesitos, regras);
   const gruposRevelacao = agruparEmpates(rankingOficial, quesitos);
+  const rankingsDestaques = calcularRankingsDestaques(completas, votos, quesitos, regras);
+  const totalPassosDestaques = rankingsDestaques.length;
 
   const desqualificados = todasCandidatas
     .filter((c) => c.flag_especial === 'DESISTENTE' || c.flag_especial === 'DESCLASSIFICADA')
@@ -957,7 +980,9 @@ async function getTelaoNotes(body) {
   return {
     success: true,
     quesitos, ativa, pendentes, jaApresentadas, desqualificados,
-    gruposRevelacao, totalPassosRevelacao: desqualificados.length + gruposRevelacao.length,
+    gruposRevelacao, rankingsDestaques,
+    // ordem da cerimônia: 1) desqualificados  2) prêmios de destaque (Rainha/Marcador/Casal...)  3) ranking geral dos grupos
+    totalPassosRevelacao: desqualificados.length + totalPassosDestaques + gruposRevelacao.length,
     revealIndex: evento.reveal_index || 0,
     nomeEvento: evento.nome
   };

@@ -390,19 +390,39 @@ var Api = {
           var valores = Object.keys(detalhamento).map(function (k) { return detalhamento[k]; });
           var total = valores.reduce(function (a, b) { return a + b; }, 0);
           var max = valores.length ? Math.max.apply(null, valores) : 0;
-          var destaque = max > 0 ? quesitosT.filter(function (q) { return detalhamento[q.id] === max; }).map(function (q) { return q.nomeExibicao || q.nome; }) : [];
+          var destaque = max > 0 ? quesitosT.filter(function (q) { return detalhamento[q.id] === max; }).map(function (q) { return { nome: q.nomeExibicao || q.nome, familia: q.familia }; }) : [];
           return { total: total, detalhamento: detalhamento, destaqueQuesitos: destaque };
         }
 
-        var rankingOficial = MockDB.computeRanking(evento, true, quesitosT);
-
-        var grupos = [];
-        rankingOficial.forEach(function (r) {
-          var ultimo = grupos[grupos.length - 1];
-          var empatado = ultimo && ultimo[0].total === r.total && quesitosT.every(function (q) {
-            return Number(ultimo[0].detalhamento[q.id] || 0) === Number(r.detalhamento[q.id] || 0);
+        function agruparEmpatesLocal(ranking, quesitosRef) {
+          var grupos = [];
+          ranking.forEach(function (r) {
+            var ultimo = grupos[grupos.length - 1];
+            var empatado = ultimo && ultimo[0].total === r.total && quesitosRef.every(function (q) {
+              return Number(ultimo[0].detalhamento[q.id] || 0) === Number(r.detalhamento[q.id] || 0);
+            });
+            if (empatado) ultimo.push(r); else grupos.push([r]);
           });
-          if (empatado) ultimo.push(r); else grupos.push([r]);
+          return grupos;
+        }
+
+        var rankingOficial = MockDB.computeRanking(evento, true, quesitosT);
+        var grupos = agruparEmpatesLocal(rankingOficial, quesitosT);
+
+        // Prêmios de destaque (Rainha/Marcador/Casal...) — ranking à parte,
+        // usando só os subquesitos daquele grupo específico.
+        var candidatasCompletas = evento.candidatas.filter(function (c) { return c.statusAuditoria === "AUDITADA"; });
+        var porGrupoDestaque = {};
+        quesitosT.filter(function (q) { return q.familia === "destaque"; }).forEach(function (q) {
+          var g = q.grupoPai || "(sem grupo)";
+          porGrupoDestaque[g] = porGrupoDestaque[g] || [];
+          porGrupoDestaque[g].push(q);
+        });
+        var rankingsDestaques = Object.keys(porGrupoDestaque).map(function (grupoNome) {
+          var quesitosDoGrupo = porGrupoDestaque[grupoNome];
+          var candidatasComoEvento = Object.assign({}, evento, { candidatas: candidatasCompletas });
+          var rankingGrupo = MockDB.computeRanking(candidatasComoEvento, false, quesitosDoGrupo);
+          return { grupo: grupoNome, quesitos: quesitosDoGrupo, ranking: agruparEmpatesLocal(rankingGrupo, quesitosDoGrupo) };
         });
 
         var desqualificados = evento.candidatas.filter(function (c) { return c.flagEspecial === "DESISTENTE" || c.flagEspecial === "DESCLASSIFICADA"; })
@@ -420,7 +440,8 @@ var Api = {
 
         return {
           success: true, quesitos: quesitosT, ativa: ativa, pendentes: pendentes, jaApresentadas: jaApresentadas,
-          desqualificados: desqualificados, gruposRevelacao: grupos, totalPassosRevelacao: desqualificados.length + grupos.length,
+          desqualificados: desqualificados, gruposRevelacao: grupos, rankingsDestaques: rankingsDestaques,
+          totalPassosRevelacao: desqualificados.length + rankingsDestaques.length + grupos.length,
           revealIndex: evento.config.revealIndex, nomeEvento: evento.nome
         };
       }
