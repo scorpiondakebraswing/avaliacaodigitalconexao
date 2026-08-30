@@ -62,9 +62,15 @@
 
       <div id="voteArea">
         <div class="card">
+          <div class="empty-state" id="eventoFinalizadoState" style="display:none;">
+            <h3>🙏 Obrigado pelo seu trabalho!</h3>
+            <p>O evento foi encerrado pelo presidente de mesa. Sua dedicação e cuidado na avaliação de cada grupo foram essenciais pra garantir um resultado justo. Muito obrigado por fazer parte da Comissão Julgadora!</p>
+          </div>
+
           <div class="empty-state" id="noActiveState">
             <h3>Aguardando o início da avaliação</h3>
             <p>Assim que o presidente de mesa ativar uma candidata, o formulário de votação aparece aqui.</p>
+            <p class="frase-etica"></p>
           </div>
 
           <div id="formBlock" style="display:none;">
@@ -78,6 +84,7 @@
             <div class="empty-state" id="aguardandoPresidenteState" style="display:none;">
               <h3 id="aguardandoTitulo">Aguardando o presidente de mesa</h3>
               <p id="aguardandoTexto">—</p>
+              <p class="frase-etica"></p>
             </div>
 
             <form id="voteForm">
@@ -138,12 +145,12 @@
   </div>
 </div>
 
-<script src="assets/js/config.js?v=28"></script>
-<script src="assets/js/mock-data.js?v=28"></script>
-<script src="assets/js/api.js?v=28"></script>
-<script src="assets/js/session.js?v=28"></script>
-<script src="assets/js/toast.js?v=28"></script>
-<script src="assets/js/shell.js?v=28"></script>
+<script src="assets/js/config.js?v=29"></script>
+<script src="assets/js/mock-data.js?v=29"></script>
+<script src="assets/js/api.js?v=29"></script>
+<script src="assets/js/session.js?v=29"></script>
+<script src="assets/js/toast.js?v=29"></script>
+<script src="assets/js/shell.js?v=29"></script>
 <script>
   var session = Session.require(['avaliador']);
   if (session) {
@@ -159,6 +166,34 @@
   var notasSelecionadas = {};
   var regrasAtuais = { maxCaracteresJustificativa: 500, justificativaObrigatoria: true, assinaturaObrigatoria: true };
   var VALORES_NOTA = [8, 8.5, 9, 9.5, 10]; // substituído por Api.call('get_evento_regras')
+
+  var FRASES_ETICA = [
+    'A imparcialidade do julgamento é o que garante a confiança de todos os participantes.',
+    'Avalie o que você vê em cena — nunca o que você já pensa sobre o grupo.',
+    'Uma nota justificada com clareza vale mais do que uma nota alta sem explicação.',
+    'Transparência não é sobre nunca errar — é sobre estar sempre disposto a explicar o porquê.',
+    'O São João é celebração. Sua responsabilidade é reconhecer, com justiça, quem mais se dedicou.',
+    'Cada décimo de nota representa meses de ensaio de um grupo. Avalie com o cuidado que isso merece.',
+    'Ética não é regra imposta — é compromisso assumido com quem confia no seu julgamento.'
+  ];
+
+  function iniciarRotacaoFrasesEtica() {
+    var indice = 0;
+    function aplicar() {
+      document.querySelectorAll('.frase-etica').forEach(function (el) {
+        el.textContent = '“' + FRASES_ETICA[indice] + '”';
+      });
+    }
+    aplicar();
+    setInterval(function () {
+      indice = (indice + 1) % FRASES_ETICA.length;
+      document.querySelectorAll('.frase-etica').forEach(function (el) { el.style.opacity = '0'; });
+      setTimeout(function () {
+        aplicar();
+        document.querySelectorAll('.frase-etica').forEach(function (el) { el.style.opacity = '1'; });
+      }, 400);
+    }, 7000);
+  }
 
   function boot() {
     Api.call('get_status_concurso', { event_id: EVT }).then(function (res) {
@@ -197,6 +232,7 @@
     loadActive();
     setInterval(loadActive, 5000);
     setInterval(loadPendingCorrections, 15000);
+    iniciarRotacaoFrasesEtica();
     initSignaturePad();
     document.getElementById('voteForm').addEventListener('submit', onSubmitVote);
     document.getElementById('btnLimparAssinatura').addEventListener('click', clearSignature);
@@ -206,6 +242,15 @@
     Api.call('get_active', { event_id: EVT }).then(function (res) {
       var noActive = document.getElementById('noActiveState');
       var formBlock = document.getElementById('formBlock');
+      var finalizadoState = document.getElementById('eventoFinalizadoState');
+
+      if (res.statusConcurso === 'FINALIZADO') {
+        finalizadoState.style.display = 'block';
+        noActive.style.display = 'none';
+        formBlock.style.display = 'none';
+        return;
+      }
+      finalizadoState.style.display = 'none';
 
       if (!res.candidata || res.statusSistema === 'AGUARDANDO') {
         noActive.style.display = 'block';
@@ -298,15 +343,18 @@
       : 'Justificativa (opcional, até ' + maxChars + ' caracteres)';
 
     function campoQuesito(q) {
+      var min = VALORES_NOTA[0];
+      var max = VALORES_NOTA[VALORES_NOTA.length - 1];
+      var passo = VALORES_NOTA.length > 1 ? Math.round((VALORES_NOTA[1] - VALORES_NOTA[0]) * 100) / 100 : 0.5;
       var rotuloClicavel = q.descricao
         ? '<label class="quesito-label-clicavel" onclick="mostrarDescricaoQuesito(\'' + q.id + '\')">' + q.nome + ' <span class="quesito-info-icone">ⓘ</span></label>'
         : '<label>' + q.nome + '</label>';
       return '<div class="form-field" style="border-top:1px solid var(--app-border);padding-top:16px;">' +
         rotuloClicavel +
-        '<div class="note-picker" data-quesito="' + q.id + '">' +
-        VALORES_NOTA.map(function (v) {
-          return '<button type="button" class="note-option" data-value="' + v + '">' + v.toFixed(1) + '</button>';
-        }).join('') +
+        '<div class="nota-slider-wrap ainda-nao-tocado" data-quesito="' + q.id + '">' +
+        '<div class="nota-slider-valor">Arraste para dar a nota</div>' +
+        '<input type="range" class="nota-slider" min="' + min + '" max="' + max + '" step="' + passo + '" value="' + min + '" data-quesito="' + q.id + '">' +
+        '<div class="nota-slider-escala"><span>' + min.toFixed(1) + '</span><span>' + max.toFixed(1) + '</span></div>' +
         '</div>' +
         '<textarea placeholder="' + placeholderJust + '" maxlength="' + maxChars + '" data-just="' + q.id + '" style="margin-top:10px;"></textarea>' +
         '</div>';
@@ -335,12 +383,13 @@
 
     container.innerHTML = html;
 
-    container.querySelectorAll('.note-option').forEach(function (btn) {
-      btn.addEventListener('click', function () {
-        var group = btn.closest('.note-picker');
-        group.querySelectorAll('.note-option').forEach(function (b) { b.classList.remove('is-selected'); });
-        btn.classList.add('is-selected');
-        notasSelecionadas[group.dataset.quesito] = Number(btn.dataset.value);
+    container.querySelectorAll('.nota-slider').forEach(function (slider) {
+      slider.addEventListener('input', function () {
+        var qid = slider.dataset.quesito;
+        notasSelecionadas[qid] = Number(slider.value);
+        var wrap = slider.closest('.nota-slider-wrap');
+        wrap.classList.remove('ainda-nao-tocado');
+        wrap.querySelector('.nota-slider-valor').textContent = Number(slider.value).toFixed(1);
         agendarAutoSalvarRascunho();
       });
     });
@@ -380,11 +429,12 @@
       Object.keys(res.notas).forEach(function (qid) {
         var nota = res.notas[qid];
         if (nota !== null && nota !== undefined && nota !== '') {
-          var group = document.querySelector('.note-picker[data-quesito="' + qid + '"]');
-          if (group) {
-            group.querySelectorAll('.note-option').forEach(function (b) {
-              b.classList.toggle('is-selected', Number(b.dataset.value) === Number(nota));
-            });
+          var slider = document.querySelector('.nota-slider[data-quesito="' + qid + '"]');
+          if (slider) {
+            slider.value = nota;
+            var wrap = slider.closest('.nota-slider-wrap');
+            wrap.classList.remove('ainda-nao-tocado');
+            wrap.querySelector('.nota-slider-valor').textContent = Number(nota).toFixed(1);
             notasSelecionadas[qid] = Number(nota);
           }
         }

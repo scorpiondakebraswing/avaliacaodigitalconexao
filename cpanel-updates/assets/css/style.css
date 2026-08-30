@@ -732,3 +732,54 @@ canvas.sign-pad{
 .quesito-info-icone{
   font-size:13px; color:var(--gold-deep); opacity:0.75;
 }
+
+/* =========================================================
+   Seletor de nota em barra deslizante (arrastar), substituindo
+   a fileira de botões — mais compacto no celular com muitos
+   quesitos na tela
+   ========================================================= */
+
+.nota-slider-wrap{ margin:12px 0 4px; }
+
+.nota-slider-valor{
+  font-family:'JetBrains Mono', monospace; font-weight:800; font-size:30px;
+  color:var(--gold-deep); text-align:center; margin-bottom:8px;
+  transition:opacity .2s ease;
+}
+
+.nota-slider-wrap.ainda-nao-tocado .nota-slider-valor{
+  color:var(--ink-faint); font-size:14px; font-weight:600; font-family:'Inter', sans-serif;
+  text-transform:uppercase; letter-spacing:0.03em;
+}
+
+.nota-slider{
+  -webkit-appearance:none; appearance:none;
+  width:100%; height:10px; border-radius:999px;
+  background:var(--paper-shade); outline:none; cursor:pointer;
+  border:1px solid var(--app-border);
+}
+
+.nota-slider::-webkit-slider-thumb{
+  -webkit-appearance:none; appearance:none;
+  width:30px; height:30px; border-radius:50%;
+  background:var(--gold-deep); border:3px solid var(--paper);
+  box-shadow:0 2px 8px rgba(0,0,0,0.3); cursor:grab; margin-top:-1px;
+}
+
+.nota-slider::-webkit-slider-thumb:active{ cursor:grabbing; }
+
+.nota-slider::-moz-range-thumb{
+  width:30px; height:30px; border-radius:50%; border:3px solid var(--paper);
+  background:var(--gold-deep); box-shadow:0 2px 8px rgba(0,0,0,0.3); cursor:grab;
+}
+
+.nota-slider-escala{
+  display:flex; justify-content:space-between;
+  font-size:11px; color:var(--ink-faint); margin-top:5px;
+}
+
+/* Frases de ética/transparência exibidas enquanto o avaliador espera */
+.frase-etica{
+  font-style:italic; color:var(--ink-faint); font-size:13.5px;
+  margin-top:18px; transition:opacity .4s ease; line-height:1.5;
+}

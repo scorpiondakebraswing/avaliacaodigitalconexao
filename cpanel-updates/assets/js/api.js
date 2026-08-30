@@ -91,7 +91,7 @@ var Api = {
 
       case "get_active": {
         var ativa = evento.candidatas.find(function (c) { return c.id === evento.config.idAtiva; });
-        return { success: true, candidata: ativa || null, statusSistema: evento.config.statusSistema };
+        return { success: true, candidata: ativa || null, statusSistema: evento.config.statusSistema, statusConcurso: evento.config.statusConcurso };
       }
 
       case "get_candidates_panel":

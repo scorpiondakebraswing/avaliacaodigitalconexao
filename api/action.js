@@ -373,7 +373,7 @@ async function getActive(body) {
     const { data } = await supabase.from('evento_candidatas').select('*').eq('evento_id', body.event_id).eq('id', evento.id_ativa).maybeSingle();
     candidata = data ? mapCandidata(data) : null;
   }
-  return { success: true, candidata, statusSistema: evento.status_sistema };
+  return { success: true, candidata, statusSistema: evento.status_sistema, statusConcurso: evento.status_concurso };
 }
 
 function mapCandidata(c) {

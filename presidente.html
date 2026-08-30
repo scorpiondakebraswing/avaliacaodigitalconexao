@@ -158,7 +158,7 @@
             <div style="display:flex;gap:8px;flex-wrap:wrap;">
               <button class="btn btn-secondary btn-sm" id="btnPdfSintetico">📄 PDF sintético</button>
               <button class="btn btn-secondary btn-sm" id="btnPdfAnalitico">📑 PDF analítico</button>
-              <button class="btn btn-danger btn-sm" id="btnEncerrarConcurso">Encerrar concurso</button>
+              <button class="btn btn-danger btn-sm" id="btnEncerrarConcurso" title="Só é possível finalizar quando não houver mais candidatas pendentes ou em avaliação">🏁 Finalizar evento</button>
             </div>
           </div>
           <div class="table-wrap">
@@ -239,9 +239,9 @@
 
 <!-- ===================== MODAL: encerrar concurso ===================== -->
 <div class="modal-overlay" id="modalEncerramento">
-  <div class="modal">
+  <div class="modal" id="modalEncerramentoConteudo">
     <div class="modal__head">
-      <h2 class="card__title">Encerrar concurso</h2>
+      <h2 class="card__title">Finalizar evento</h2>
       <button class="modal__close" data-close-modal="modalEncerramento">&times;</button>
     </div>
     <p class="card__desc" style="margin-bottom:16px;">Essa ação congela o ranking final, as notas recebidas, as notas validadas e o histórico de correções. Depois de encerrado, nenhuma alteração adicional será permitida.</p>
@@ -249,12 +249,12 @@
   </div>
 </div>
 
-<script src="assets/js/config.js?v=28"></script>
-<script src="assets/js/mock-data.js?v=28"></script>
-<script src="assets/js/api.js?v=28"></script>
-<script src="assets/js/session.js?v=28"></script>
-<script src="assets/js/toast.js?v=28"></script>
-<script src="assets/js/shell.js?v=28"></script>
+<script src="assets/js/config.js?v=29"></script>
+<script src="assets/js/mock-data.js?v=29"></script>
+<script src="assets/js/api.js?v=29"></script>
+<script src="assets/js/session.js?v=29"></script>
+<script src="assets/js/toast.js?v=29"></script>
+<script src="assets/js/shell.js?v=29"></script>
 <script>
   var session = Session.require(['presidente', 'admin']);
   if (session) {
@@ -360,9 +360,21 @@
 
     document.getElementById('btnConfirmarEncerramento').addEventListener('click', function () {
       Api.call('finalizar_concurso', { event_id: EVT, usuario: session.nome, perfil: 'PRESIDENTE DE MESA' }).then(function (res) {
-        document.getElementById('modalEncerramento').classList.remove('is-open');
-        if (res.success) { Toast.success(res.message); refreshAll(); }
-        else Toast.error(res.message);
+        if (res.success) {
+          document.getElementById('modalEncerramentoConteudo').innerHTML =
+            '<div class="empty-state" style="padding:10px 0;">' +
+            '<h3>🙏 Muito obrigado pelo seu trabalho!</h3>' +
+            '<p>O evento foi encerrado com sucesso. Toda a dedicação e o cuidado que você e sua equipe tiveram na condução dessa avaliação foram fundamentais pra garantir um resultado justo e transparente pra todos os grupos. Parabéns pelo trabalho realizado!</p>' +
+            '<button class="btn btn-secondary btn-sm" data-close-modal="modalEncerramento" style="margin-top:14px;">Fechar</button>' +
+            '</div>';
+          document.querySelectorAll('#modalEncerramentoConteudo [data-close-modal]').forEach(function (btn) {
+            btn.addEventListener('click', function () { document.getElementById(btn.dataset.closeModal).classList.remove('is-open'); });
+          });
+          Toast.success(res.message);
+          refreshAll();
+        } else {
+          Toast.error(res.message);
+        }
       });
     });
   }
@@ -379,6 +391,12 @@
       renderActiveBlock(res[0]);
       renderFila(res[1].candidatas || []);
       (res[1].candidatas || []).forEach(function (c) { mapaCandidatas[c.id] = c.nome; });
+
+      var restamPendentes = (res[1].candidatas || []).some(function (c) {
+        return c.statusAvaliacao === 'PENDENTE' || c.statusAvaliacao === 'EM_AVALIACAO';
+      });
+      var btnFinalizar = document.getElementById('btnEncerrarConcurso');
+      if (btnFinalizar) btnFinalizar.disabled = restamPendentes;
     });
   }
 
