@@ -53,6 +53,7 @@
         <h1>Sua votação</h1>
         <p class="app-topbar__sub">Avalie a candidata ativa com atenção, ética e transparência.</p>
       </div>
+      <button class="btn btn-secondary btn-sm" id="btnAbrirManual">📖 Manual do jurado</button>
     </header>
 
     <div class="app-content app-content--narrow">
@@ -100,12 +101,49 @@
   </div>
 </div>
 
-<script src="assets/js/config.js?v=27"></script>
-<script src="assets/js/mock-data.js?v=27"></script>
-<script src="assets/js/api.js?v=27"></script>
-<script src="assets/js/session.js?v=27"></script>
-<script src="assets/js/toast.js?v=27"></script>
-<script src="assets/js/shell.js?v=27"></script>
+<div class="modal-overlay" id="modalDescricaoQuesito">
+  <div class="modal">
+    <div class="modal__head">
+      <h2 class="card__title" id="descricaoQuesitoModalTitulo">Quesito</h2>
+      <button class="modal__close" data-close-modal="modalDescricaoQuesito">&times;</button>
+    </div>
+    <p id="descricaoQuesitoModalTexto" style="line-height:1.6;"></p>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modalManualJurado">
+  <div class="modal" style="max-width:640px;max-height:85vh;overflow-y:auto;">
+    <div class="modal__head">
+      <h2 class="card__title">📖 Manual do Jurado — Ceará Junino</h2>
+      <button class="modal__close" data-close-modal="modalManualJurado">&times;</button>
+    </div>
+    <div style="line-height:1.65;font-size:14px;">
+      <h3 style="font-size:15px;margin:14px 0 6px;">Critérios de julgamento</h3>
+      <p>O julgamento deve ser feito com objetividade, rigor técnico e equidade. Embora a apresentação seja uma expressão artística naturalmente subjetiva, sua nota deve se basear em fundamentos técnicos claros — evite deixar impressões pessoais interferirem.</p>
+      <p>Avalie exclusivamente o desempenho artístico e técnico exibido durante a apresentação. Não deixe a nota ser influenciada por: reação da torcida/público, efeitos pirotécnicos ou de cenografia, comparações com outros grupos, ou impressões prévias sobre o grupo.</p>
+      <p>A nota varia exclusivamente entre 8,0 e 10,0, admitindo fracionamento em décimos.</p>
+
+      <h3 style="font-size:15px;margin:18px 0 6px;">Justificativa das notas</h3>
+      <p>Toda nota — inclusive a nota máxima 10,0 — precisa de justificativa obrigatória. Escreva de forma clara, objetiva e tecnicamente fundamentada, relacionada diretamente ao que você observou na apresentação.</p>
+
+      <h3 style="font-size:15px;margin:18px 0 6px;">Postura e ética</h3>
+      <p>Mantenha conduta imparcial, discreta e profissional durante todo o evento. É vedado: demonstrar preferência ou parcialidade por qualquer grupo; confraternizar excessivamente com participantes; adotar conduta desrespeitosa; e receber ou exibir materiais promocionais dos grupos durante o julgamento.</p>
+      <p>Qualquer pronunciamento público (entrevistas, saudações, instruções aos grupos) depende de autorização prévia da organização.</p>
+
+      <h3 style="font-size:15px;margin:18px 0 6px;">Durante a apresentação</h3>
+      <p>Não se ausente da mesa de julgamento durante nenhuma apresentação. Não use aparelhos eletrônicos (celular, smartwatch, câmeras etc.) nem consuma bebidas alcoólicas ou fume durante o julgamento.</p>
+
+      <p class="hint" style="margin-top:16px;">Este é um resumo prático das diretrizes gerais. Para o texto oficial completo, consulte o Manual da Comissão Julgadora e o Regulamento do evento.</p>
+    </div>
+  </div>
+</div>
+
+<script src="assets/js/config.js?v=28"></script>
+<script src="assets/js/mock-data.js?v=28"></script>
+<script src="assets/js/api.js?v=28"></script>
+<script src="assets/js/session.js?v=28"></script>
+<script src="assets/js/toast.js?v=28"></script>
+<script src="assets/js/shell.js?v=28"></script>
 <script>
   var session = Session.require(['avaliador']);
   if (session) {
@@ -260,8 +298,11 @@
       : 'Justificativa (opcional, até ' + maxChars + ' caracteres)';
 
     function campoQuesito(q) {
+      var rotuloClicavel = q.descricao
+        ? '<label class="quesito-label-clicavel" onclick="mostrarDescricaoQuesito(\'' + q.id + '\')">' + q.nome + ' <span class="quesito-info-icone">ⓘ</span></label>'
+        : '<label>' + q.nome + '</label>';
       return '<div class="form-field" style="border-top:1px solid var(--app-border);padding-top:16px;">' +
-        '<label>' + q.nome + '</label>' +
+        rotuloClicavel +
         '<div class="note-picker" data-quesito="' + q.id + '">' +
         VALORES_NOTA.map(function (v) {
           return '<button type="button" class="note-option" data-value="' + v + '">' + v.toFixed(1) + '</button>';
@@ -590,6 +631,24 @@
   }
 
   function signatureIsEmpty() { return !hasDrawn; }
+
+  document.querySelectorAll('[data-close-modal]').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      document.getElementById(btn.dataset.closeModal).classList.remove('is-open');
+    });
+  });
+
+  window.mostrarDescricaoQuesito = function (quesitoId) {
+    var q = quesitosAtuais.find(function (x) { return x.id === quesitoId; });
+    if (!q || !q.descricao) return;
+    document.getElementById('descricaoQuesitoModalTitulo').textContent = (q.grupoPai ? q.grupoPai + ' - ' : '') + q.nome;
+    document.getElementById('descricaoQuesitoModalTexto').textContent = q.descricao;
+    document.getElementById('modalDescricaoQuesito').classList.add('is-open');
+  };
+
+  document.getElementById('btnAbrirManual').addEventListener('click', function () {
+    document.getElementById('modalManualJurado').classList.add('is-open');
+  });
   function signatureDataUrl() { return canvas.toDataURL('image/png'); }
 </script>
 </body>

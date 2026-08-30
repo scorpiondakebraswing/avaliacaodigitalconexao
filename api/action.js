@@ -156,7 +156,7 @@ function nomeExibicaoQuesito(q) {
 function mapQuesito(q) {
   return {
     id: q.id, nome: q.nome, peso: Number(q.peso), ordem: q.ordem,
-    familia: q.familia || 'quadrilha', grupoPai: q.grupo_pai || null,
+    familia: q.familia || 'quadrilha', grupoPai: q.grupo_pai || null, descricao: q.descricao || '',
     nomeExibicao: nomeExibicaoQuesito(q)
   };
 }
@@ -310,7 +310,7 @@ async function getQuesitosGlobais(body) {
     quesitos: (globais || []).map((q) => ({
       id: q.id, nome: q.nome, peso: Number(q.peso), ordem: q.ordem,
       validoParaTodos: q.valido_para_todos, eventos: map[q.id] || [],
-      familia: q.familia || 'quadrilha', grupoPai: q.grupo_pai || null
+      familia: q.familia || 'quadrilha', grupoPai: q.grupo_pai || null, descricao: q.descricao || ''
     }))
   };
 }
@@ -1123,7 +1123,8 @@ async function adminSaveQuesitos(body) {
 
   await supabase.from('quesitos_globais').upsert(quesitos.map((q) => ({
     id: q.id, nome: q.nome, peso: q.peso, ordem: q.ordem, valido_para_todos: q.validoParaTodos !== false, cliente_id: clienteId,
-    familia: q.familia === 'destaque' ? 'destaque' : 'quadrilha', grupo_pai: q.familia === 'destaque' ? (q.grupoPai || null) : null
+    familia: q.familia === 'destaque' ? 'destaque' : 'quadrilha', grupo_pai: q.familia === 'destaque' ? (q.grupoPai || null) : null,
+    descricao: q.descricao || null
   })));
 
   await supabase.from('quesito_eventos').delete().in('quesito_id', ids.length ? ids : ['__none__']);

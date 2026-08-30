@@ -54,6 +54,7 @@
         <h1>Painel da Presidência</h1>
         <p class="app-topbar__sub">Controle o andamento, audite notas e apure o resultado oficial.</p>
       </div>
+      <button class="btn btn-secondary btn-sm" id="btnAbrirManual">📖 Manual do jurado</button>
     </header>
 
     <div class="app-content">
@@ -211,6 +212,31 @@
 </div>
 
 <!-- ===================== MODAL: auditoria de candidata ===================== -->
+<div class="modal-overlay" id="modalManualJurado">
+  <div class="modal" style="max-width:640px;max-height:85vh;overflow-y:auto;">
+    <div class="modal__head">
+      <h2 class="card__title">📖 Manual do Jurado — Ceará Junino</h2>
+      <button class="modal__close" data-close-modal="modalManualJurado">&times;</button>
+    </div>
+    <div style="line-height:1.65;font-size:14px;">
+      <h3 style="font-size:15px;margin:14px 0 6px;">Papel do presidente de mesa</h3>
+      <p>Coordene a Comissão Julgadora, resolvendo questões de ordem estrutural ou de conduta. Informe aos avaliadores o horário de entrada, saída e o tempo de duração de cada apresentação.</p>
+      <p>Revise a completude e conformidade das notas recebidas. Se identificar ausência de justificativa ou inconsistência com a nota atribuída, questione o avaliador responsável para que complemente ou corrija — é exatamente para isso que serve a aba "Notas recebidas" com o botão "Questionar".</p>
+
+      <h3 style="font-size:15px;margin:18px 0 6px;">Critérios de julgamento</h3>
+      <p>O julgamento deve ser objetivo, com rigor técnico e equidade. A nota varia exclusivamente entre 8,0 e 10,0, admitindo fracionamento em décimos. A avaliação deve se ater ao desempenho artístico e técnico exibido na apresentação — sem influência de reação do público, efeitos de cenografia, comparação com outros grupos ou impressões prévias.</p>
+
+      <h3 style="font-size:15px;margin:18px 0 6px;">Justificativa das notas</h3>
+      <p>Toda nota — inclusive a nota máxima 10,0 — precisa de justificativa obrigatória e tecnicamente fundamentada. Isso vale tanto pros avaliadores quanto pro presidente ao questionar ou validar uma nota.</p>
+
+      <h3 style="font-size:15px;margin:18px 0 6px;">Postura e ética</h3>
+      <p>Mantenha conduta imparcial e profissional. Não divulgue resultados antes do anúncio oficial. Qualquer pronunciamento público depende de autorização prévia da organização.</p>
+
+      <p class="hint" style="margin-top:16px;">Este é um resumo prático das diretrizes gerais. Para o texto oficial completo, consulte o Manual da Comissão Julgadora e o Regulamento do evento.</p>
+    </div>
+  </div>
+</div>
+
 <!-- ===================== MODAL: encerrar concurso ===================== -->
 <div class="modal-overlay" id="modalEncerramento">
   <div class="modal">
@@ -223,12 +249,12 @@
   </div>
 </div>
 
-<script src="assets/js/config.js?v=27"></script>
-<script src="assets/js/mock-data.js?v=27"></script>
-<script src="assets/js/api.js?v=27"></script>
-<script src="assets/js/session.js?v=27"></script>
-<script src="assets/js/toast.js?v=27"></script>
-<script src="assets/js/shell.js?v=27"></script>
+<script src="assets/js/config.js?v=28"></script>
+<script src="assets/js/mock-data.js?v=28"></script>
+<script src="assets/js/api.js?v=28"></script>
+<script src="assets/js/session.js?v=28"></script>
+<script src="assets/js/toast.js?v=28"></script>
+<script src="assets/js/shell.js?v=28"></script>
 <script>
   var session = Session.require(['presidente', 'admin']);
   if (session) {
@@ -237,6 +263,10 @@
   }
 
   var EVT = session ? session.eventoId : null;
+
+  document.getElementById('btnAbrirManual').addEventListener('click', function () {
+    document.getElementById('modalManualJurado').classList.add('is-open');
+  });
 
   function boot() {
     bindTabs();

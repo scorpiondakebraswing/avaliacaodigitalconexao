@@ -717,3 +717,18 @@ canvas.sign-pad{
   margin:14px 0 2px; padding:6px 10px; background:var(--paper-shade);
   border-radius:var(--radius-sm); display:inline-block;
 }
+
+/* =========================================================
+   Nome do quesito clicável (abre a descrição/definição) na
+   tela do avaliador
+   ========================================================= */
+
+.quesito-label-clicavel{
+  cursor:pointer; display:inline-flex; align-items:center; gap:5px;
+}
+
+.quesito-label-clicavel:hover{ color:var(--gold-deep); text-decoration:underline; }
+
+.quesito-info-icone{
+  font-size:13px; color:var(--gold-deep); opacity:0.75;
+}

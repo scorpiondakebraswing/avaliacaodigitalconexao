@@ -6,7 +6,7 @@
 <title>Painel do Administrador — Avaliação Digital 2.0</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;700;800&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="assets/css/style.css?v=27">
+<link rel="stylesheet" href="assets/css/style.css?v=28">
 </head>
 <body>
 
@@ -111,8 +111,7 @@
               <p class="card__desc">Avaliados diretamente, cada um com nota e justificativa próprias. O <strong>Peso</strong> define a prioridade no desempate (peso 1 é conferido primeiro).</p>
             </div>
             <button class="btn btn-primary btn-sm" id="btnNovoQuesitoQuadrilha">+ Novo quesito</button>
-          </div>
-          <div class="table-wrap">
+          </div>          <div class="table-wrap">
             <table>
               <thead><tr><th>Ordem</th><th>Nome do quesito</th><th>Peso (desempate)</th><th>Válido para</th><th>Ações</th></tr></thead>
               <tbody id="quesitosQuadrilhaBody"></tbody>
@@ -134,6 +133,7 @@
           <div id="gruposDestaquesContainer"></div>
         </div>
 
+        <button class="btn btn-secondary btn-sm" id="btnPreencherDescricoesOficiais">📖 Preencher descrições oficiais (manual do jurado)</button>
         <button class="btn btn-secondary btn-sm" id="btnSalvarQuesitos">Salvar quesitos</button>
       </section>
 
@@ -172,6 +172,21 @@
 </div>
 
 <!-- ===================== MODAL: usuário ===================== -->
+<div class="modal-overlay" id="modalDescricaoQuesito">
+  <div class="modal">
+    <div class="modal__head">
+      <h2 class="card__title">Descrição do quesito</h2>
+      <button class="modal__close" data-close-modal="modalDescricaoQuesito">&times;</button>
+    </div>
+    <p class="card__desc" id="descricaoQuesitoNome" style="margin-top:-8px;"></p>
+    <div class="form-field">
+      <label for="descricaoQuesitoTexto">Texto explicativo</label>
+      <textarea id="descricaoQuesitoTexto" rows="8" placeholder="Explique o que esse quesito avalia — o avaliador vai poder ler isso clicando no nome do quesito na hora de votar."></textarea>
+    </div>
+    <button class="btn btn-primary btn-block" id="btnSalvarDescricaoQuesito">Salvar descrição</button>
+  </div>
+</div>
+
 <div class="modal-overlay" id="modalUsuario">
   <div class="modal">
     <div class="modal__head">
@@ -348,12 +363,12 @@
   </div>
 </div>
 
-<script src="assets/js/config.js?v=27"></script>
-<script src="assets/js/mock-data.js?v=27"></script>
-<script src="assets/js/api.js?v=27"></script>
-<script src="assets/js/session.js?v=27"></script>
-<script src="assets/js/toast.js?v=27"></script>
-<script src="assets/js/shell.js?v=27"></script>
+<script src="assets/js/config.js?v=28"></script>
+<script src="assets/js/mock-data.js?v=28"></script>
+<script src="assets/js/api.js?v=28"></script>
+<script src="assets/js/session.js?v=28"></script>
+<script src="assets/js/toast.js?v=28"></script>
+<script src="assets/js/shell.js?v=28"></script>
 <script>
   var session = Session.require(['admin']);
   if (session) { Shell.init(session); boot(); }
@@ -867,7 +882,7 @@
         '<td><input type="text" value="' + q.nome + '" style="text-transform:uppercase;" oninput="autoUpper(this);updateQuesitoCampo(\'' + q.id + '\',\'nome\',this.value)"></td>' +
         '<td><input type="number" step="1" min="1" value="' + q.peso + '" style="width:80px;" onchange="updateQuesitoPeso(\'' + q.id + '\',this)"></td>' +
         '<td>' + linhaValidoPara(q) + '</td>' +
-        '<td><button class="btn btn-ghost btn-sm" onclick="removerQuesito(\'' + q.id + '\')">Remover</button></td>' +
+        '<td style="white-space:nowrap;"><button class="btn btn-ghost btn-sm" title="Descrição" onclick="abrirDescricaoQuesito(\'' + q.id + '\')">' + (q.descricao ? '📖' : '📝') + '</button> <button class="btn btn-ghost btn-sm" onclick="removerQuesito(\'' + q.id + '\')">Remover</button></td>' +
         '</tr>';
     }).join('');
   }
@@ -897,7 +912,7 @@
           '<td><input type="text" value="' + q.nome + '" style="text-transform:uppercase;" oninput="autoUpper(this);updateQuesitoCampo(\'' + q.id + '\',\'nome\',this.value)"></td>' +
           '<td><input type="number" step="1" min="1" value="' + q.peso + '" style="width:80px;" onchange="updateQuesitoPeso(\'' + q.id + '\',this)"></td>' +
           '<td>' + linhaValidoPara(q) + '</td>' +
-          '<td><button class="btn btn-ghost btn-sm" onclick="removerQuesito(\'' + q.id + '\')">Remover</button></td>' +
+          '<td style="white-space:nowrap;"><button class="btn btn-ghost btn-sm" title="Descrição" onclick="abrirDescricaoQuesito(\'' + q.id + '\')">' + (q.descricao ? '📖' : '📝') + '</button> <button class="btn btn-ghost btn-sm" onclick="removerQuesito(\'' + q.id + '\')">Remover</button></td>' +
           '</tr>';
       }).join('');
 
@@ -977,22 +992,94 @@
 
   document.getElementById('btnCarregarPadraoDestaques').addEventListener('click', function () {
     var padrao = [
-      { grupo: 'RAINHA', subquesitos: ['DESENVOLTURA', 'FIGURINO', 'ANIMAÇÃO', 'INTEGRAÇÃO'] },
-      { grupo: 'MARCADOR', subquesitos: ['LIDERANÇA', 'DESENVOLTURA', 'FIGURINO', 'ANIMAÇÃO', 'INTEGRAÇÃO'] },
-      { grupo: 'CASAL', subquesitos: ['INTERPRETAÇÃO', 'DESENVOLTURA', 'FIGURINO', 'ANIMAÇÃO', 'INTEGRAÇÃO'] }
+      { grupo: 'RAINHA', subquesitos: [
+        ['DESENVOLTURA', 'Representação com desembaraço e vivacidade. Avalia-se a naturalidade e elegância nos movimentos, a expressividade facial e corporal, a capacidade de adaptação a imprevistos, e a proposta coreográfica bem executada (fluidez, controle técnico, leveza).'],
+        ['FIGURINO', 'Conjunto de vestuário e acessórios ligado à cultura junina. Avalia-se a harmonia cromática, a relação com a temática do grupo, a presença de elementos juninos tradicionais (bicos, fitas, bordados etc.), a conservação/acabamento, e o ajuste ao corpo da personagem.'],
+        ['ANIMAÇÃO', 'Entusiasmo, emoção e vivacidade ao longo de toda a apresentação. Avalia-se a energia constante, a postura e vigor cênico sem perder a elegância, e o equilíbrio entre emoção e técnica mesmo em momentos de alta intensidade.'],
+        ['INTEGRAÇÃO', 'Ato de interagir e se integrar ao grupo, demonstrando pertencimento. Avalia-se a sintonia com os demais brincantes (sem protagonismo isolado excessivo), a harmonia nos movimentos coletivos, a participação ativa no enredo, e o equilíbrio entre destaque individual e coletividade.']
+      ]},
+      { grupo: 'MARCADOR', subquesitos: [
+        ['LIDERANÇA', 'Capacidade de conduzir a apresentação com competência e autoridade. Avalia-se o domínio da coreografia, do tempo musical e da narrativa; se o marcador prioriza corretamente sua função de condução; a postura de liderança natural e respeitosa; a clareza das marcações e comandos; e se o grupo reconhece o marcador como o condutor da apresentação.'],
+        ['DESENVOLTURA', 'Representação com desembaraço e vivacidade. Avalia-se a naturalidade e espontaneidade nas falas e movimentações, o domínio na narração, a capacidade de improviso mantendo coerência com a narrativa junina, e a execução harmônica da coreografia coletiva e individual.'],
+        ['FIGURINO', 'Conjunto de vestuário e acessórios ligado à cultura junina. Avalia-se a harmonia cromática, a presença de elementos juninos tradicionais, a adequação temática (o figurino dialoga com o enredo e o papel do marcador), a conservação/acabamento, e o ajuste ao corpo.'],
+        ['ANIMAÇÃO', 'Entusiasmo, emoção e vivacidade ao longo de toda a apresentação. Avalia-se a energia contínua do início ao fim, a participação ativa e contagiante, a expressão facial/corporal coerente, e o equilíbrio no ritmo sem prejudicar a clareza das marcações.'],
+        ['INTEGRAÇÃO', 'Ato de interagir e se integrar ao grupo. Avalia-se a harmonia entre o marcador e o grupo, o respeito ao tempo coletivo (sem sobreposições ou quebras de ritmo), a comunicação afetiva com os brincantes, e a sensibilidade para destacar o grupo mantendo equilíbrio entre protagonismo e coletividade.']
+      ]},
+      { grupo: 'CASAL', subquesitos: [
+        ['INTERPRETAÇÃO', 'Representação dos personagens, considerando a atuação individual e a cumplicidade do casal. Avalia-se a construção cênica dos personagens (coerência com o tema e a cultura junina), a expressividade emocional/teatral, a cumplicidade entre os noivos, e o uso da linguagem corporal sustentando o protagonismo cênico.'],
+        ['DESENVOLTURA', 'Representação com desembaraço e vivacidade. Avalia-se a naturalidade nas movimentações (evitando rigidez), a confiança e fluidez na execução de gestos e falas, o domínio de palco, e a capacidade de improvisação diante de situações inesperadas.'],
+        ['FIGURINO', 'Conjunto de vestuário e acessórios ligado à cultura junina. Avalia-se o equilíbrio e uso das cores, a relação com a temática e a cultura junina, a presença de elementos juninos tradicionais, a qualidade do acabamento/conservação, e o ajuste ao corpo do personagem.'],
+        ['ANIMAÇÃO', 'Entusiasmo, emoção e vivacidade ao longo de toda a apresentação. Avalia-se a energia e entusiasmo contínuos, a expressão facial/corporal coerente com a proposta, e o ritmo/empolgação equilibrados, sem exageros.'],
+        ['INTEGRAÇÃO', 'Ato de interagir e se integrar ao grupo. Avalia-se a sintonia com os demais brincantes, a harmonia nos movimentos coletivos, a participação ativa no enredo, a comunicação afetiva com o grupo, e a coerência entre a performance do casal e o contexto coletivo.']
+      ]}
     ];
     var adicionados = 0;
     padrao.forEach(function (grupo) {
-      grupo.subquesitos.forEach(function (nomeSub, idx) {
+      grupo.subquesitos.forEach(function (par, idx) {
+        var nomeSub = par[0], descricaoSub = par[1];
         var jaExiste = quesitosState.some(function (q) { return q.familia === 'destaque' && q.grupoPai === grupo.grupo && q.nome === nomeSub; });
         if (jaExiste) return;
-        quesitosState.push({ id: 'destaque-' + Date.now() + '-' + adicionados, nome: nomeSub, peso: idx + 1, ordem: idx + 1, validoParaTodos: true, eventos: [], familia: 'destaque', grupoPai: grupo.grupo });
+        quesitosState.push({ id: 'destaque-' + Date.now() + '-' + adicionados, nome: nomeSub, descricao: descricaoSub, peso: idx + 1, ordem: idx + 1, validoParaTodos: true, eventos: [], familia: 'destaque', grupoPai: grupo.grupo });
         adicionados++;
       });
     });
     renderQuesitos();
-    if (adicionados) Toast.success(adicionados + ' subquesito(s) padrão adicionado(s). Clique em "Salvar quesitos" para confirmar.');
+    if (adicionados) Toast.success(adicionados + ' subquesito(s) padrão adicionado(s), já com a descrição oficial. Clique em "Salvar quesitos" para confirmar.');
     else Toast.info('Os grupos e subquesitos padrão já estavam todos cadastrados.');
+  });
+
+  window.abrirDescricaoQuesito = function (id) {
+    var item = quesitosState.find(function (q) { return q.id === id; });
+    if (!item) return;
+    document.getElementById('modalDescricaoQuesito').dataset.editingId = id;
+    document.getElementById('descricaoQuesitoNome').textContent = (item.grupoPai ? item.grupoPai + ' - ' : '') + item.nome;
+    document.getElementById('descricaoQuesitoTexto').value = item.descricao || '';
+    document.getElementById('modalDescricaoQuesito').classList.add('is-open');
+  };
+
+  document.getElementById('btnSalvarDescricaoQuesito').addEventListener('click', function () {
+    var id = document.getElementById('modalDescricaoQuesito').dataset.editingId;
+    var item = quesitosState.find(function (q) { return q.id === id; });
+    if (item) item.descricao = document.getElementById('descricaoQuesitoTexto').value.trim();
+    document.getElementById('modalDescricaoQuesito').classList.remove('is-open');
+    renderQuesitos();
+    Toast.success('Descrição atualizada — clique em "Salvar quesitos" para confirmar.');
+  });
+
+  document.getElementById('btnPreencherDescricoesOficiais').addEventListener('click', function () {
+    var DESCRICOES_OFICIAIS = {
+      'quadrilha|TEMA': 'Conceito central que dá unidade à apresentação. Avalia-se: a criatividade na abordagem do tema e como ele se conecta ao contexto junino; a pesquisa que fundamenta o tema (histórica, social, religiosa, folclórica ou literária), dando autenticidade e profundidade; o enredo — a forma narrativa como o tema é contado, com início, desenvolvimento e desfecho coerentes; e a adaptação — a habilidade do grupo em traduzir o tema para a linguagem junina, sem perder a essência do São João mesmo quando o tema é contemporâneo ou universal.',
+      'quadrilha|REPERTÓRIO': 'Conjunto de músicas com letras (cantadas, recitadas ou instrumentais) em sincronia com o ritmo. Avalia-se a LETRA — clareza e coerência com o tema e os festejos juninos, criação poética, uso de expressões culturais e contribuição pra narrativa; e o RITMO — coerência com a cadência junina tradicional (mesmo dialogando com influências contemporâneas), transições bem construídas e precisão na execução.',
+      'quadrilha|FIGURINO': 'Conjunto de vestuário e acessórios, ligado obrigatoriamente à cultura junina. Avalia-se a relação do figurino com o TEMA proposto; o JOGO DE CORES (harmonia cromática entre as peças); os ACESSÓRIOS (chapéus, bijuterias, cintos etc., em equilíbrio com o conjunto); e a CONSERVAÇÃO (estado das peças, acabamento, limpeza e ajuste ao corpo dos brincantes).',
+      'quadrilha|COREOGRAFIA': 'Conjunto de movimentos sequenciados com acompanhamento musical — tradicionais, releituras ou novos passos. Avalia-se o PRODUTO DA CRIATIVIDADE (desenvolvimento coreográfico, clareza da proposta cênica, transições e formações); a EXECUÇÃO (sincronia, precisão, domínio do tempo musical, e a execução da quantidade mínima obrigatória de passos tradicionais); e o QUANTITATIVO (aproveitamento do espaço cênico e harmonia entre a quantidade de brincantes em cena e a estética do conjunto).',
+      'quadrilha|ANIMAÇÃO': 'Movimento entusiasmado, espontâneo e vivaz — entrega de corpo e alma durante toda a apresentação. Avalia-se a VIVACIDADE (energia e vigor constantes, força cênica que contagia o público) e a EMPATIA CÊNICA (comunicação afetiva com o público e entre os próprios brincantes, carisma e autenticidade).',
+      'quadrilha|CASAMENTO': 'Representação cênica da celebração da união (independente do rito religioso). Avalia-se o TEXTO em cena e sua relação com o tema; a coerência narrativa; a INTERPRETAÇÃO dos personagens; a MARCAÇÃO (movimentação e posicionamento em cena); a CARACTERIZAÇÃO (trajes e aspectos comportamentais); e, se houver, o uso de CENÁRIO (não é obrigatório).',
+      'quadrilha|DINÂMICA': 'Progressão narrativa e coreográfica que garante o bom andamento da apresentação. Avalia-se se a sequência está coesa (sem cortes ou interrupções longas); se os elementos artísticos estão bem conectados; se há diálogo coerente entre a temática e a cultura junina; e se a apresentação flui com naturalidade, sem parecer mecanizada.',
+      'RAINHA|DESENVOLTURA': 'Representação com desembaraço e vivacidade. Avalia-se a naturalidade e elegância nos movimentos, a expressividade facial e corporal, a capacidade de adaptação a imprevistos, e a proposta coreográfica bem executada (fluidez, controle técnico, leveza).',
+      'RAINHA|FIGURINO': 'Conjunto de vestuário e acessórios ligado à cultura junina. Avalia-se a harmonia cromática, a relação com a temática do grupo, a presença de elementos juninos tradicionais (bicos, fitas, bordados etc.), a conservação/acabamento, e o ajuste ao corpo da personagem.',
+      'RAINHA|ANIMAÇÃO': 'Entusiasmo, emoção e vivacidade ao longo de toda a apresentação. Avalia-se a energia constante, a postura e vigor cênico sem perder a elegância, e o equilíbrio entre emoção e técnica mesmo em momentos de alta intensidade.',
+      'RAINHA|INTEGRAÇÃO': 'Ato de interagir e se integrar ao grupo, demonstrando pertencimento. Avalia-se a sintonia com os demais brincantes (sem protagonismo isolado excessivo), a harmonia nos movimentos coletivos, a participação ativa no enredo, e o equilíbrio entre destaque individual e coletividade.',
+      'MARCADOR|LIDERANÇA': 'Capacidade de conduzir a apresentação com competência e autoridade. Avalia-se o domínio da coreografia, do tempo musical e da narrativa; se o marcador prioriza corretamente sua função de condução; a postura de liderança natural e respeitosa; a clareza das marcações e comandos; e se o grupo reconhece o marcador como o condutor da apresentação.',
+      'MARCADOR|DESENVOLTURA': 'Representação com desembaraço e vivacidade. Avalia-se a naturalidade e espontaneidade nas falas e movimentações, o domínio na narração, a capacidade de improviso mantendo coerência com a narrativa junina, e a execução harmônica da coreografia coletiva e individual.',
+      'MARCADOR|FIGURINO': 'Conjunto de vestuário e acessórios ligado à cultura junina. Avalia-se a harmonia cromática, a presença de elementos juninos tradicionais, a adequação temática (o figurino dialoga com o enredo e o papel do marcador), a conservação/acabamento, e o ajuste ao corpo.',
+      'MARCADOR|ANIMAÇÃO': 'Entusiasmo, emoção e vivacidade ao longo de toda a apresentação. Avalia-se a energia contínua do início ao fim, a participação ativa e contagiante, a expressão facial/corporal coerente, e o equilíbrio no ritmo sem prejudicar a clareza das marcações.',
+      'MARCADOR|INTEGRAÇÃO': 'Ato de interagir e se integrar ao grupo. Avalia-se a harmonia entre o marcador e o grupo, o respeito ao tempo coletivo (sem sobreposições ou quebras de ritmo), a comunicação afetiva com os brincantes, e a sensibilidade para destacar o grupo mantendo equilíbrio entre protagonismo e coletividade.',
+      'CASAL|INTERPRETAÇÃO': 'Representação dos personagens, considerando a atuação individual e a cumplicidade do casal. Avalia-se a construção cênica dos personagens (coerência com o tema e a cultura junina), a expressividade emocional/teatral, a cumplicidade entre os noivos, e o uso da linguagem corporal sustentando o protagonismo cênico.',
+      'CASAL|DESENVOLTURA': 'Representação com desembaraço e vivacidade. Avalia-se a naturalidade nas movimentações (evitando rigidez), a confiança e fluidez na execução de gestos e falas, o domínio de palco, e a capacidade de improvisação diante de situações inesperadas.',
+      'CASAL|FIGURINO': 'Conjunto de vestuário e acessórios ligado à cultura junina. Avalia-se o equilíbrio e uso das cores, a relação com a temática e a cultura junina, a presença de elementos juninos tradicionais, a qualidade do acabamento/conservação, e o ajuste ao corpo do personagem.',
+      'CASAL|ANIMAÇÃO': 'Entusiasmo, emoção e vivacidade ao longo de toda a apresentação. Avalia-se a energia e entusiasmo contínuos, a expressão facial/corporal coerente com a proposta, e o ritmo/empolgação equilibrados, sem exageros.',
+      'CASAL|INTEGRAÇÃO': 'Ato de interagir e se integrar ao grupo. Avalia-se a sintonia com os demais brincantes, a harmonia nos movimentos coletivos, a participação ativa no enredo, a comunicação afetiva com o grupo, e a coerência entre a performance do casal e o contexto coletivo.'
+    };
+
+    var preenchidos = 0;
+    quesitosState.forEach(function (q) {
+      if (q.descricao) return; // não sobrescreve descrição já escrita pelo admin
+      var chave = q.familia === 'destaque' ? (q.grupoPai || '') + '|' + q.nome : 'quadrilha|' + q.nome;
+      if (DESCRICOES_OFICIAIS[chave]) { q.descricao = DESCRICOES_OFICIAIS[chave]; preenchidos++; }
+    });
+    renderQuesitos();
+    if (preenchidos) Toast.success(preenchidos + ' descrição(ões) preenchida(s) com o texto oficial do manual. Clique em "Salvar quesitos" para confirmar.');
+    else Toast.info('Nenhum quesito sem descrição bateu com o nome oficial (Rainha/Marcador/Casal ou os 7 de quadrilha padrão).');
   });
 
   document.getElementById('btnSalvarQuesitos').addEventListener('click', function () {
