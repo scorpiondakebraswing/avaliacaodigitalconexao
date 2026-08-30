@@ -6,11 +6,11 @@ var SESSION_KEY = "ad2_session";
 
 var Session = {
   save: function (data) {
-    localStorage.setItem(SESSION_KEY, JSON.stringify(data));
+    sessionStorage.setItem(SESSION_KEY, JSON.stringify(data));
   },
 
   load: function () {
-    var raw = localStorage.getItem(SESSION_KEY);
+    var raw = sessionStorage.getItem(SESSION_KEY);
     if (!raw) return null;
     try {
       return JSON.parse(raw);
@@ -20,7 +20,7 @@ var Session = {
   },
 
   clear: function () {
-    localStorage.removeItem(SESSION_KEY);
+    sessionStorage.removeItem(SESSION_KEY);
   },
 
   // Garante que existe sessão e que o perfil é um dos permitidos.
