@@ -6,7 +6,7 @@
 <title>Painel do Administrador — Avaliação Digital 2.0</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;700;800&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="assets/css/style.css?v=29">
+<link rel="stylesheet" href="assets/css/style.css?v=31">
 </head>
 <body>
 
@@ -38,6 +38,7 @@
           <div class="app-user__role" data-user-role>—</div>
         </div>
       </div>
+      <button class="sidebar-secondary-btn" data-trocar-senha style="margin-bottom:6px;">🔑 Trocar minha senha</button>
       <button class="logout-btn" data-logout>Sair do sistema</button>
     </div>
   </aside>
@@ -228,15 +229,16 @@
         <p class="hint">Ao salvar, o sistema preenche automaticamente a nota mínima do evento em todos os quesitos que esse avaliador ainda não votou, em todas as candidatas — sem sobrescrever votos já dados.</p>
       </div>
     </div>
-    <div class="form-field" id="userSenhaField" style="display:none;">
+    <div class="form-field" id="userSenhaField">
       <label for="userSenha">Senha</label>
       <input type="password" id="userSenha" placeholder="Defina uma senha" autocomplete="new-password">
-      <p class="hint" id="userSenhaHint">Obrigatória para administrador, presidente e consultor.</p>
+      <p class="hint" id="userSenhaHint">Todo usuário precisa de senha. Se deixar em branco ao criar, a senha padrão (123456) é usada.</p>
       <a href="#" id="btnAbrirRedefinirSenha" style="display:none;font-size:12px;margin-top:6px;">Redefinir senha deste usuário</a>
       <div id="redefinirSenhaBlock" style="display:none;margin-top:10px;padding:12px;border:1px dashed var(--app-border);border-radius:var(--radius-sm);">
-        <label for="novaSenhaRedefinir" style="font-size:11.5px;">Nova senha</label>
+        <label for="novaSenhaRedefinir" style="font-size:11.5px;">Nova senha (ou deixe em branco pra voltar ao padrão 123456)</label>
         <input type="password" id="novaSenhaRedefinir" placeholder="Nova senha" autocomplete="new-password" style="margin-bottom:8px;">
         <button type="button" class="btn btn-secondary btn-sm btn-block" id="btnConfirmarRedefinirSenha">Confirmar nova senha</button>
+        <button type="button" class="btn btn-ghost btn-sm btn-block" id="btnResetarSenhaPadrao" style="margin-top:6px;">Redefinir para o padrão (123456)</button>
       </div>
     </div>
     <div class="form-field">
@@ -363,12 +365,12 @@
   </div>
 </div>
 
-<script src="assets/js/config.js?v=29"></script>
-<script src="assets/js/mock-data.js?v=29"></script>
-<script src="assets/js/api.js?v=29"></script>
-<script src="assets/js/session.js?v=29"></script>
-<script src="assets/js/toast.js?v=29"></script>
-<script src="assets/js/shell.js?v=29"></script>
+<script src="assets/js/config.js?v=31"></script>
+<script src="assets/js/mock-data.js?v=31"></script>
+<script src="assets/js/api.js?v=31"></script>
+<script src="assets/js/session.js?v=31"></script>
+<script src="assets/js/toast.js?v=31"></script>
+<script src="assets/js/shell.js?v=31"></script>
 <script>
   var session = Session.require(['admin']);
   if (session) { Shell.init(session); boot(); }
@@ -422,7 +424,7 @@
       document.getElementById('userMotivoProblema').value = '';
       document.getElementById('motivoProblemaField').style.display = 'none';
       document.getElementById('userSenha').value = '';
-      document.getElementById('userSenhaHint').textContent = 'Obrigatória para administrador, presidente e consultor.';
+      document.getElementById('userSenhaHint').textContent = 'Se deixar em branco, a senha padrão (123456) é usada.';
       document.getElementById('btnAbrirRedefinirSenha').style.display = 'none';
       document.getElementById('redefinirSenhaBlock').style.display = 'none';
       document.getElementById('btnAbrirTrocaCodigo').style.display = 'none';
@@ -442,11 +444,24 @@
     document.getElementById('btnConfirmarRedefinirSenha').addEventListener('click', function () {
       var codigo = document.getElementById('modalUsuario').dataset.editingCodigo;
       var novaSenha = document.getElementById('novaSenhaRedefinir').value;
-      if (!novaSenha || novaSenha.length < 4) { Toast.error('A senha precisa ter pelo menos 4 caracteres.'); return; }
+      if (!novaSenha || novaSenha.length < 6) { Toast.error('A senha precisa ter pelo menos 6 caracteres.'); return; }
       Api.call('redefinir_senha', { codigo: codigo, novaSenha: novaSenha, cliente_id: session.clienteId, usuario: session.nome, perfil: 'ADMIN' }).then(function (res) {
         if (res.success) {
           Toast.success(res.message);
           document.getElementById('novaSenhaRedefinir').value = '';
+          document.getElementById('redefinirSenhaBlock').style.display = 'none';
+        } else {
+          Toast.error(res.message);
+        }
+      });
+    });
+
+    document.getElementById('btnResetarSenhaPadrao').addEventListener('click', function () {
+      var codigo = document.getElementById('modalUsuario').dataset.editingCodigo;
+      if (!window.confirm('Redefinir a senha desse usuário para o padrão (123456)?')) return;
+      Api.call('redefinir_senha', { codigo: codigo, cliente_id: session.clienteId, usuario: session.nome, perfil: 'ADMIN' }).then(function (res) {
+        if (res.success) {
+          Toast.success(res.message);
           document.getElementById('redefinirSenhaBlock').style.display = 'none';
         } else {
           Toast.error(res.message);
@@ -475,7 +490,6 @@
       }
 
       if (!codigo || !nome) { Toast.error('Preencha código e nome.'); return; }
-      if (perfil !== 'avaliador' && !editando && !senha) { Toast.error('Defina uma senha para este perfil.'); return; }
       if (comProblema && !motivoProblema) { Toast.error('Informe o motivo do avaliador estar com problemas.'); return; }
 
       var payload = {
@@ -562,7 +576,6 @@
     var ehAvaliador = document.getElementById('userPerfil').value === 'avaliador';
     document.getElementById('avaliadorIndividualField').style.display = ehAvaliador ? 'block' : 'none';
     document.getElementById('avaliadorProblemaField').style.display = ehAvaliador ? 'block' : 'none';
-    document.getElementById('userSenhaField').style.display = ehAvaliador ? 'none' : 'block';
     if (!ehAvaliador) {
       document.getElementById('userAvaliadorIndividual').checked = false;
       document.getElementById('userComProblema').checked = false;
@@ -760,7 +773,7 @@
     document.getElementById('motivoProblemaField').style.display = u.comProblema ? 'block' : 'none';
     document.getElementById('userSenha').value = '';
     document.getElementById('userSenhaHint').textContent = 'Deixe em branco para manter a senha atual.';
-    document.getElementById('btnAbrirRedefinirSenha').style.display = (u.perfil !== 'avaliador') ? 'block' : 'none';
+    document.getElementById('btnAbrirRedefinirSenha').style.display = 'block';
     document.getElementById('redefinirSenhaBlock').style.display = 'none';
     document.getElementById('novaSenhaRedefinir').value = '';
     document.getElementById('btnAbrirTrocaCodigo').style.display = 'block';

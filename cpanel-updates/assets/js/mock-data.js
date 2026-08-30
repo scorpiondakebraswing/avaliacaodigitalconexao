@@ -17,13 +17,13 @@ var MockDB = {
       ],
 
       usuarios: [
-        { codigo: "MASTER-2027", nome: "MASTER DA PLATAFORMA", perfil: "master", eventos: [], ativo: true, clienteId: null },
-        { codigo: "ADM-2027", nome: "ANA (CONEXÃO JUNINA)", perfil: "admin", eventos: ["evt-1"], ativo: true, clienteId: "cli-1" },
-        { codigo: "PRES-2027", nome: "UBIRATAM", perfil: "presidente", eventos: ["evt-1"], ativo: true, clienteId: "cli-1" },
-        { codigo: "AVAL-2027", nome: "HELENA BARBOSA", perfil: "avaliador", eventos: ["evt-1"], ativo: true, clienteId: "cli-1", avaliadorIndividual: false, quesitosPorEvento: {} },
-        { codigo: "AVAL2-2027", nome: "TAYWAN RAMIRES", perfil: "avaliador", eventos: ["evt-1"], ativo: true, clienteId: "cli-1", avaliadorIndividual: false, quesitosPorEvento: {} },
-        { codigo: "AVAL3-2027", nome: "GRACINHA", perfil: "avaliador", eventos: ["evt-1"], ativo: true, clienteId: "cli-1", avaliadorIndividual: false, quesitosPorEvento: {} },
-        { codigo: "CONS-2027", nome: "CONSULTORIA CONEXÃO", perfil: "consultor", eventos: ["evt-1"], ativo: true, clienteId: "cli-1" }
+        { codigo: "MASTER-2027", nome: "MASTER DA PLATAFORMA", perfil: "master", eventos: [], ativo: true, clienteId: null, senha: "123456" },
+        { codigo: "ADM-2027", nome: "ANA (CONEXÃO JUNINA)", perfil: "admin", eventos: ["evt-1"], ativo: true, clienteId: "cli-1", senha: "123456" },
+        { codigo: "PRES-2027", nome: "UBIRATAM", perfil: "presidente", eventos: ["evt-1"], ativo: true, clienteId: "cli-1", senha: "123456" },
+        { codigo: "AVAL-2027", nome: "HELENA BARBOSA", perfil: "avaliador", eventos: ["evt-1"], ativo: true, clienteId: "cli-1", avaliadorIndividual: false, quesitosPorEvento: {}, senha: "123456" },
+        { codigo: "AVAL2-2027", nome: "TAYWAN RAMIRES", perfil: "avaliador", eventos: ["evt-1"], ativo: true, clienteId: "cli-1", avaliadorIndividual: false, quesitosPorEvento: {}, senha: "123456" },
+        { codigo: "AVAL3-2027", nome: "GRACINHA", perfil: "avaliador", eventos: ["evt-1"], ativo: true, clienteId: "cli-1", avaliadorIndividual: false, quesitosPorEvento: {}, senha: "123456" },
+        { codigo: "CONS-2027", nome: "CONSULTORIA CONEXÃO", perfil: "consultor", eventos: ["evt-1"], ativo: true, clienteId: "cli-1", senha: "123456" }
       ],
 
       // Catálogo GLOBAL de quesitos (por cliente). Cada evento usa os que

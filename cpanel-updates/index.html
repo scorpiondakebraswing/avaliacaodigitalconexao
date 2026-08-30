@@ -185,19 +185,14 @@
         </div>
 
         <h1 class="flagcard__title">Entrar no sistema</h1>
-        <p class="flagcard__subtitle" id="loginSubtitle">Digite o código de acesso que a organização do seu evento te entregou.</p>
-
-        <div style="display:flex;gap:8px;margin-bottom:18px;">
-          <button type="button" class="mode-btn is-active" id="modoAvaliadorBtn" onclick="selecionarModo('avaliador')">Sou avaliador</button>
-          <button type="button" class="mode-btn" id="modoOutroBtn" onclick="selecionarModo('outro')">Admin / Presidente / Consultor</button>
-        </div>
+        <p class="flagcard__subtitle" id="loginSubtitle">Digite seu código de acesso e sua senha.</p>
 
         <form id="loginForm" novalidate>
           <div class="field">
             <label for="codeInput" id="codeInputLabel">Código de acesso</label>
-            <input type="text" id="codeInput" class="code-input" placeholder="EX: AVAL-2027" autocomplete="off" autocapitalize="characters" spellcheck="false">
+            <input type="text" id="codeInput" class="code-input" placeholder="EX: AVAL-2027" autocomplete="username" autocapitalize="characters" spellcheck="false">
           </div>
-          <div class="field" id="senhaField" style="display:none;">
+          <div class="field" id="senhaField">
             <label for="senhaInput">Senha</label>
             <input type="password" id="senhaInput" class="code-input" placeholder="••••••••" autocomplete="current-password" style="text-transform:none;letter-spacing:normal;font-family:'Inter',sans-serif;font-size:16px;">
           </div>
@@ -208,22 +203,22 @@
             <span class="submit-btn__label">Entrar</span>
           </button>
 
-          <a href="#" class="help-link" id="helpLink">Não tem um código? Fale com a organização do seu evento.</a>
+          <a href="#" class="help-link" id="helpLink">Esqueceu sua senha? Fale com o administrador do seu evento.</a>
         </form>
       </div>
     </div>
 
     <p class="demo-note" id="demoNote" style="display:none">
-      Modo demonstração ativo. Experimente: <code>ADM-2027</code> · <code>PRES-2027</code> · <code>AVAL-2027</code> · <code>CONS-2027</code>
+      Modo demonstração ativo. Experimente: <code>ADM-2027</code> · <code>PRES-2027</code> · <code>AVAL-2027</code> · <code>CONS-2027</code> — senha <code>123456</code>
     </p>
   </main>
 
   <p class="footer">Feito para celebrar o São João com <strong>transparência, segurança e ética</strong>.</p>
 
-  <script src="assets/js/config.js?v=29"></script>
-  <script src="assets/js/mock-data.js?v=29"></script>
-  <script src="assets/js/api.js?v=29"></script>
-  <script src="assets/js/session.js?v=29"></script>
+  <script src="assets/js/config.js?v=31"></script>
+  <script src="assets/js/mock-data.js?v=31"></script>
+  <script src="assets/js/api.js?v=31"></script>
+  <script src="assets/js/session.js?v=31"></script>
   <script>
     // garland
     var garlandRow = document.getElementById('garlandRow');
@@ -283,21 +278,6 @@
       msg.textContent = '';
     });
 
-    var modoAtual = 'avaliador';
-
-    window.selecionarModo = function (modo) {
-      modoAtual = modo;
-      document.getElementById('modoAvaliadorBtn').classList.toggle('is-active', modo === 'avaliador');
-      document.getElementById('modoOutroBtn').classList.toggle('is-active', modo === 'outro');
-      document.getElementById('senhaField').style.display = modo === 'outro' ? 'block' : 'none';
-      document.getElementById('codeInputLabel').textContent = modo === 'outro' ? 'Código de usuário' : 'Código de acesso';
-      document.getElementById('loginSubtitle').textContent = modo === 'outro'
-        ? 'Entre com seu código de usuário e senha.'
-        : 'Digite o código de acesso que a organização do seu evento te entregou.';
-      msg.textContent = '';
-      input.classList.remove('has-error');
-    };
-
     form.addEventListener('submit', function (e) {
       e.preventDefault();
       var code = input.value.trim().toUpperCase();
@@ -310,7 +290,7 @@
         return;
       }
 
-      if (modoAtual === 'outro' && !senha) {
+      if (!senha) {
         msg.textContent = 'Informe a senha.';
         document.getElementById('senhaInput').focus();
         return;
@@ -326,7 +306,7 @@
 
         if (!res.success) {
           input.classList.add('has-error');
-          msg.textContent = res.message || 'Código não reconhecido.';
+          msg.textContent = res.message || 'Código ou senha incorretos.';
           input.focus();
           return;
         }

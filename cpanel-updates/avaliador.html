@@ -38,6 +38,7 @@
           <div class="app-user__role" data-user-role>—</div>
         </div>
       </div>
+      <button class="sidebar-secondary-btn" data-trocar-senha style="margin-bottom:6px;">🔑 Trocar minha senha</button>
       <button class="logout-btn" data-logout>Sair do sistema</button>
     </div>
   </aside>
@@ -145,12 +146,12 @@
   </div>
 </div>
 
-<script src="assets/js/config.js?v=29"></script>
-<script src="assets/js/mock-data.js?v=29"></script>
-<script src="assets/js/api.js?v=29"></script>
-<script src="assets/js/session.js?v=29"></script>
-<script src="assets/js/toast.js?v=29"></script>
-<script src="assets/js/shell.js?v=29"></script>
+<script src="assets/js/config.js?v=31"></script>
+<script src="assets/js/mock-data.js?v=31"></script>
+<script src="assets/js/api.js?v=31"></script>
+<script src="assets/js/session.js?v=31"></script>
+<script src="assets/js/toast.js?v=31"></script>
+<script src="assets/js/shell.js?v=31"></script>
 <script>
   var session = Session.require(['avaliador']);
   if (session) {
@@ -369,15 +370,21 @@
       if (gruposDestaque.indexOf(nome) === -1) gruposDestaque.push(nome);
     });
 
+    var CORES_BLOCO = ['cor-1', 'cor-2', 'cor-3', 'cor-4', 'cor-5', 'cor-6'];
+
     var html = '';
     if (quadrilha.length) {
-      html += '<h3 class="quesito-grupo-titulo">Quadrilha</h3>' + quadrilha.map(campoQuesito).join('');
+      html += '<div class="quesito-bloco quadrilha-cor">' +
+        '<h3 class="quesito-grupo-titulo">Quadrilha</h3>' + quadrilha.map(campoQuesito).join('') +
+        '</div>';
     }
     if (gruposDestaque.length) {
       html += '<h3 class="quesito-grupo-titulo" style="margin-top:20px;">Destaques</h3>';
-      gruposDestaque.forEach(function (grupoNome) {
+      gruposDestaque.forEach(function (grupoNome, i) {
         var subquesitos = destaques.filter(function (q) { return (q.grupoPai || '(sem grupo)') === grupoNome; }).sort(function (a, b) { return a.ordem - b.ordem; });
-        html += '<h4 class="quesito-subgrupo-titulo">' + grupoNome + '</h4>' + subquesitos.map(campoQuesito).join('');
+        html += '<div class="quesito-bloco ' + CORES_BLOCO[i % CORES_BLOCO.length] + '">' +
+          '<h4 class="quesito-subgrupo-titulo">' + grupoNome + '</h4>' + subquesitos.map(campoQuesito).join('') +
+          '</div>';
       });
     }
 

@@ -64,8 +64,11 @@ var Api = {
 
       case "login": {
         var user = db.usuarios.find(function (u) { return u.codigo.toUpperCase() === String(p.codigo || "").toUpperCase(); });
-        if (!user) return { success: false, message: "Código não reconhecido. Verifique com a organização do seu evento." };
+        if (!user) return { success: false, message: "Código ou senha incorretos." };
         if (user.ativo === false) return { success: false, message: "Este usuário está desativado. Fale com o administrador do seu evento." };
+        if (String(p.senha || "") !== String(user.senha || "123456")) {
+          return { success: false, message: "Código ou senha incorretos." };
+        }
 
         if (user.perfil !== "master") {
           if (!user.clienteId) return { success: false, message: "Este usuário não está associado a nenhum grupo de clientes. Fale com o master da plataforma." };
@@ -77,6 +80,28 @@ var Api = {
         }
 
         return { success: true, usuario: { codigo: user.codigo, nome: user.nome, perfil: user.perfil, eventoId: user.eventos[0], clienteId: user.clienteId || null } };
+      }
+
+      case "redefinir_senha": {
+        var alvoSenha = db.usuarios.find(function (u) { return u.codigo.toUpperCase() === String(p.codigo || "").toUpperCase(); });
+        if (!alvoSenha) return { success: false, message: "Usuário não encontrado" };
+        if (p.perfil && String(p.perfil).toLowerCase() === "admin" && alvoSenha.clienteId !== p.cliente_id) {
+          return { success: false, message: "Você só pode redefinir a senha de usuários do seu próprio grupo." };
+        }
+        var novaSenhaReset = p.novaSenha || "123456";
+        alvoSenha.senha = novaSenhaReset;
+        MockDB.save(db);
+        return { success: true, message: novaSenhaReset === "123456" ? "Senha redefinida para o padrão (123456)." : "Senha redefinida com sucesso." };
+      }
+
+      case "trocar_minha_senha": {
+        var euMesmo = db.usuarios.find(function (u) { return u.codigo.toUpperCase() === String(p.codigo || "").toUpperCase(); });
+        if (!euMesmo) return { success: false, message: "Usuário não encontrado" };
+        if (String(p.senhaAtual || "") !== String(euMesmo.senha || "123456")) return { success: false, message: "Senha atual incorreta." };
+        if (String(p.novaSenha || "").length < 6) return { success: false, message: "A nova senha precisa ter pelo menos 6 caracteres." };
+        euMesmo.senha = p.novaSenha;
+        MockDB.save(db);
+        return { success: true, message: "Senha alterada com sucesso." };
       }
 
       case "get_evento_regras":
@@ -537,8 +562,9 @@ var Api = {
           existenteU.avaliadorIndividual = avaliadorIndividual;
           existenteU.quesitosPorEvento = quesitosPorEvento;
           if (clienteIdSalvar !== null) existenteU.clienteId = clienteIdSalvar;
+          if (p.senha) existenteU.senha = p.senha;
         } else {
-          db.usuarios.push({ codigo: p.codigo, nome: p.nome, perfil: p.perfil, eventos: p.eventos || [], ativo: novoAtivo, clienteId: clienteIdSalvar, avaliadorIndividual: avaliadorIndividual, quesitosPorEvento: quesitosPorEvento });
+          db.usuarios.push({ codigo: p.codigo, nome: p.nome, perfil: p.perfil, eventos: p.eventos || [], ativo: novoAtivo, clienteId: clienteIdSalvar, avaliadorIndividual: avaliadorIndividual, quesitosPorEvento: quesitosPorEvento, senha: p.senha || "123456" });
         }
         MockDB.save(db);
         return { success: true, message: "Usuário salvo" };

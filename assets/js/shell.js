@@ -33,6 +33,7 @@ var Shell = {
     this._fillUser(session);
     this._buildNav(session);
     this._bindLogout();
+    this._bindTrocarSenha(session);
     this._bindMobileToggle();
     this._demoRibbon();
   },
@@ -70,6 +71,61 @@ var Shell = {
         Session.logout();
       });
     }
+  },
+
+  _bindTrocarSenha: function (session) {
+    var btn = document.querySelector("[data-trocar-senha]");
+    if (!btn) return;
+
+    if (!document.getElementById("modalTrocarSenhaShell")) {
+      var modal = document.createElement("div");
+      modal.className = "modal-overlay";
+      modal.id = "modalTrocarSenhaShell";
+      modal.innerHTML =
+        '<div class="modal">' +
+          '<div class="modal__head">' +
+            '<h2 class="card__title">Trocar minha senha</h2>' +
+            '<button class="modal__close" id="fecharModalTrocarSenhaShell">&times;</button>' +
+          "</div>" +
+          '<div class="form-field"><label for="senhaAtualShell">Senha atual</label><input type="password" id="senhaAtualShell" autocomplete="current-password"></div>' +
+          '<div class="form-field"><label for="novaSenhaShell">Nova senha</label><input type="password" id="novaSenhaShell" placeholder="Pelo menos 6 caracteres" autocomplete="new-password"></div>' +
+          '<div class="form-field"><label for="confirmarSenhaShell">Confirmar nova senha</label><input type="password" id="confirmarSenhaShell" autocomplete="new-password"></div>' +
+          '<button class="btn btn-primary btn-block" id="confirmarTrocarSenhaShell">Salvar nova senha</button>' +
+        "</div>";
+      document.body.appendChild(modal);
+
+      document.getElementById("fecharModalTrocarSenhaShell").addEventListener("click", function () {
+        modal.classList.remove("is-open");
+      });
+      modal.addEventListener("click", function (e) {
+        if (e.target === modal) modal.classList.remove("is-open");
+      });
+
+      document.getElementById("confirmarTrocarSenhaShell").addEventListener("click", function () {
+        var atual = document.getElementById("senhaAtualShell").value;
+        var nova = document.getElementById("novaSenhaShell").value;
+        var confirmar = document.getElementById("confirmarSenhaShell").value;
+        if (!atual || !nova) { Toast.error("Preencha todos os campos."); return; }
+        if (nova !== confirmar) { Toast.error("A confirmação não bate com a nova senha."); return; }
+        if (nova.length < 6) { Toast.error("A nova senha precisa ter pelo menos 6 caracteres."); return; }
+
+        Api.call("trocar_minha_senha", { codigo: session.codigo, senhaAtual: atual, novaSenha: nova }).then(function (res) {
+          if (res.success) {
+            Toast.success(res.message);
+            modal.classList.remove("is-open");
+            document.getElementById("senhaAtualShell").value = "";
+            document.getElementById("novaSenhaShell").value = "";
+            document.getElementById("confirmarSenhaShell").value = "";
+          } else {
+            Toast.error(res.message);
+          }
+        });
+      });
+    }
+
+    btn.addEventListener("click", function () {
+      document.getElementById("modalTrocarSenhaShell").classList.add("is-open");
+    });
   },
 
   _bindMobileToggle: function () {

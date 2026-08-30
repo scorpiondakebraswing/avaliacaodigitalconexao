@@ -38,6 +38,7 @@ async function route(action, body) {
   switch (action) {
     case 'login': return login(body);
     case 'redefinir_senha': return redefinirSenha(body);
+    case 'trocar_minha_senha': return trocarMinhaSenha(body);
     case 'salvar_rascunho': return salvarRascunho(body);
     case 'get_rascunho': return getRascunho(body);
     case 'marcar_avaliador_problema': return marcarAvaliadorProblema(body);
@@ -211,18 +212,15 @@ function normalizarNota(nota, regras) {
 
 async function login(body) {
   const usuario = await getUsuarioPorCodigo(String(body.codigo || '').trim());
-  if (!usuario) return { success: false, message: 'Código não reconhecido. Verifique com a organização do seu evento.' };
+  if (!usuario) return { success: false, message: 'Código ou senha incorretos.' };
   if (usuario.ativo === false) return { success: false, message: 'Este usuário está desativado. Fale com o administrador do seu evento.' };
 
-  // Só o avaliador loga só com código. Os demais perfis (master, admin,
-  // presidente, consultor) agora também precisam de senha.
-  if (usuario.perfil !== 'avaliador') {
-    if (!usuario.senha_hash) {
-      return { success: false, message: 'Este usuário ainda não tem senha definida. Peça ao administrador para redefinir sua senha.' };
-    }
-    if (!verificarSenha(String(body.senha || ''), usuario.senha_hash)) {
-      return { success: false, message: 'Código ou senha incorretos.' };
-    }
+  // Todos os perfis agora fazem login com código + senha.
+  if (!usuario.senha_hash) {
+    return { success: false, message: 'Este usuário ainda não tem senha definida. Peça para redefinirem sua senha.' };
+  }
+  if (!verificarSenha(String(body.senha || ''), usuario.senha_hash)) {
+    return { success: false, message: 'Código ou senha incorretos.' };
   }
 
   // perfil master não pertence a nenhum cliente — gerencia todos.
@@ -250,14 +248,14 @@ async function redefinirSenha(body) {
 
   const alvo = await getUsuarioPorCodigo(String(body.codigo || '').trim());
   if (!alvo) return { success: false, message: 'Usuário não encontrado' };
-  if (alvo.perfil === 'avaliador') return { success: false, message: 'Avaliadores não usam senha — só código de acesso.' };
 
   // admin só pode redefinir senha de usuários do próprio cliente
   if (perfilQuemPede === 'admin' && alvo.cliente_id !== body.cliente_id) {
     return { success: false, message: 'Você só pode redefinir a senha de usuários do seu próprio grupo.' };
   }
 
-  const novaSenha = String(body.novaSenha || '');
+  // Sem novaSenha informada, volta pra senha padrão (123456).
+  const novaSenha = String(body.novaSenha || '') || '123456';
   if (novaSenha.length < 6) return { success: false, message: 'A nova senha precisa ter pelo menos 6 caracteres.' };
 
   const { error } = await supabase.from('usuarios').update({ senha_hash: hashSenha(novaSenha) }).eq('codigo', alvo.codigo);
@@ -266,7 +264,30 @@ async function redefinirSenha(body) {
   if (alvo.eventos && alvo.eventos[0]) {
     await registrarLog(alvo.eventos[0], 'RESET_PASSWORD', body.usuario, body.perfil, `Senha de ${alvo.codigo} redefinida por ${body.usuario || perfilQuemPede}`);
   }
-  return { success: true, message: 'Senha redefinida com sucesso.' };
+  return { success: true, message: novaSenha === '123456' ? 'Senha redefinida para o padrão (123456).' : 'Senha redefinida com sucesso.' };
+}
+
+// Qualquer usuário troca a própria senha, de dentro do próprio painel —
+// precisa confirmar a senha atual primeiro.
+async function trocarMinhaSenha(body) {
+  const codigo = String(body.codigo || '').trim().toUpperCase();
+  const usuario = await getUsuarioPorCodigo(codigo);
+  if (!usuario) return { success: false, message: 'Usuário não encontrado' };
+
+  if (!usuario.senha_hash || !verificarSenha(String(body.senhaAtual || ''), usuario.senha_hash)) {
+    return { success: false, message: 'Senha atual incorreta.' };
+  }
+
+  const novaSenha = String(body.novaSenha || '');
+  if (novaSenha.length < 6) return { success: false, message: 'A nova senha precisa ter pelo menos 6 caracteres.' };
+
+  const { error } = await supabase.from('usuarios').update({ senha_hash: hashSenha(novaSenha) }).eq('codigo', codigo);
+  if (error) return { success: false, message: 'Erro ao trocar senha: ' + error.message };
+
+  if (usuario.eventos && usuario.eventos[0]) {
+    await registrarLog(usuario.eventos[0], 'CHANGE_OWN_PASSWORD', usuario.nome, usuario.perfil, `${codigo} trocou a própria senha`);
+  }
+  return { success: true, message: 'Senha alterada com sucesso.' };
 }
 
 /* ============================= quesitos / status ============================= */
@@ -1068,11 +1089,19 @@ async function adminSaveUsuario(body) {
   const ativo = body.ativo !== false;
   const avaliadorIndividual = !!body.avaliadorIndividual;
 
+  const existente = await getUsuarioPorCodigo(codigo);
+
   const payload = {
     codigo, nome: body.nome, perfil: body.perfil, ativo, cliente_id: body.clienteId || body.cliente_id || null,
     avaliador_individual: avaliadorIndividual
   };
-  if (body.senha) payload.senha_hash = hashSenha(String(body.senha));
+  if (body.senha) {
+    payload.senha_hash = hashSenha(String(body.senha));
+  } else if (!existente) {
+    // usuário novo, sem senha informada — todo usuário precisa de senha,
+    // então já nasce com a senha padrão (o usuário pode trocar depois).
+    payload.senha_hash = hashSenha('123456');
+  }
 
   const { error } = await supabase.from('usuarios').upsert(payload);
   if (error) throw error;

@@ -6,7 +6,7 @@
 <title>Painel Master — Avaliação Digital 2.0</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;700;800&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="assets/css/style.css?v=29">
+<link rel="stylesheet" href="assets/css/style.css?v=31">
 </head>
 <body>
 
@@ -39,6 +39,7 @@
         </div>
       </div>
       <button class="btn btn-ghost btn-sm btn-block" id="btnTrocarMeuCodigo" style="margin-bottom:8px;color:var(--paper);border-color:rgba(255,255,255,0.25);">Trocar meu código de acesso</button>
+      <button class="sidebar-secondary-btn" data-trocar-senha style="margin-bottom:6px;">🔑 Trocar minha senha</button>
       <button class="logout-btn" data-logout>Sair do sistema</button>
     </div>
   </aside>
@@ -148,7 +149,7 @@
     </div>
     <div class="form-field">
       <label for="ucPerfil">Perfil</label>
-      <select id="ucPerfil" onchange="document.getElementById('ucSenhaField').style.display = this.value === 'avaliador' ? 'none' : 'block';">
+      <select id="ucPerfil">
         <option value="admin" selected>Administrador</option>
         <option value="presidente">Presidente de mesa</option>
         <option value="avaliador">Avaliador</option>
@@ -158,12 +159,13 @@
     <div class="form-field" id="ucSenhaField">
       <label for="ucSenha">Senha</label>
       <input type="password" id="ucSenha" placeholder="Defina uma senha" autocomplete="new-password">
-      <p class="hint" id="ucSenhaHint">Obrigatória para administrador, presidente e consultor.</p>
+      <p class="hint" id="ucSenhaHint">Se deixar em branco, a senha padrão (123456) é usada.</p>
       <a href="#" id="btnAbrirRedefinirSenhaUC" style="display:none;font-size:12px;margin-top:6px;">Redefinir senha deste usuário</a>
       <div id="redefinirSenhaBlockUC" style="display:none;margin-top:10px;padding:12px;border:1px dashed var(--app-border);border-radius:var(--radius-sm);">
-        <label for="novaSenhaRedefinirUC" style="font-size:11.5px;">Nova senha</label>
+        <label for="novaSenhaRedefinirUC" style="font-size:11.5px;">Nova senha (ou deixe em branco pra voltar ao padrão 123456)</label>
         <input type="password" id="novaSenhaRedefinirUC" placeholder="Nova senha" autocomplete="new-password" style="margin-bottom:8px;">
         <button type="button" class="btn btn-secondary btn-sm btn-block" id="btnConfirmarRedefinirSenhaUC">Confirmar nova senha</button>
+        <button type="button" class="btn btn-ghost btn-sm btn-block" id="btnResetarSenhaPadraoUC" style="margin-top:6px;">Redefinir para o padrão (123456)</button>
       </div>
     </div>
     <div class="form-field">
@@ -189,12 +191,12 @@
   </div>
 </div>
 
-<script src="assets/js/config.js?v=29"></script>
-<script src="assets/js/mock-data.js?v=29"></script>
-<script src="assets/js/api.js?v=29"></script>
-<script src="assets/js/session.js?v=29"></script>
-<script src="assets/js/toast.js?v=29"></script>
-<script src="assets/js/shell.js?v=29"></script>
+<script src="assets/js/config.js?v=31"></script>
+<script src="assets/js/mock-data.js?v=31"></script>
+<script src="assets/js/api.js?v=31"></script>
+<script src="assets/js/session.js?v=31"></script>
+<script src="assets/js/toast.js?v=31"></script>
+<script src="assets/js/shell.js?v=31"></script>
 <script>
   var session = Session.require(['master']);
   if (session) { Shell.init(session); boot(); }
@@ -269,9 +271,8 @@
       document.getElementById('ucCodigo').disabled = false;
       document.getElementById('ucNome').value = '';
       document.getElementById('ucPerfil').value = 'admin';
-      document.getElementById('ucSenhaField').style.display = 'block';
       document.getElementById('ucSenha').value = '';
-      document.getElementById('ucSenhaHint').textContent = 'Obrigatória para administrador, presidente e consultor.';
+      document.getElementById('ucSenhaHint').textContent = 'Se deixar em branco, a senha padrão (123456) é usada.';
       document.getElementById('btnAbrirRedefinirSenhaUC').style.display = 'none';
       document.getElementById('redefinirSenhaBlockUC').style.display = 'none';
       document.getElementById('ucAtivo').checked = true;
@@ -289,7 +290,6 @@
       var ativo = document.getElementById('ucAtivo').checked;
       var senha = document.getElementById('ucSenha').value;
       if (!codigo || !nome) { Toast.error('Preencha código e nome.'); return; }
-      if (perfil !== 'avaliador' && !editando && !senha) { Toast.error('Defina uma senha para este perfil.'); return; }
 
       var payload = { codigo: codigo, nome: nome, perfil: perfil, ativo: ativo, eventos: [], cliente_id: clienteSelecionadoId };
       if (senha) payload.senha = senha;
@@ -310,11 +310,24 @@
     document.getElementById('btnConfirmarRedefinirSenhaUC').addEventListener('click', function () {
       var codigo = document.getElementById('modalUsuarioCliente').dataset.editingCodigo;
       var novaSenha = document.getElementById('novaSenhaRedefinirUC').value;
-      if (!novaSenha || novaSenha.length < 4) { Toast.error('A senha precisa ter pelo menos 4 caracteres.'); return; }
+      if (!novaSenha || novaSenha.length < 6) { Toast.error('A senha precisa ter pelo menos 6 caracteres.'); return; }
       Api.call('redefinir_senha', { codigo: codigo, novaSenha: novaSenha, usuario: session.nome, perfil: 'MASTER' }).then(function (res) {
         if (res.success) {
           Toast.success(res.message);
           document.getElementById('novaSenhaRedefinirUC').value = '';
+          document.getElementById('redefinirSenhaBlockUC').style.display = 'none';
+        } else {
+          Toast.error(res.message);
+        }
+      });
+    });
+
+    document.getElementById('btnResetarSenhaPadraoUC').addEventListener('click', function () {
+      var codigo = document.getElementById('modalUsuarioCliente').dataset.editingCodigo;
+      if (!window.confirm('Redefinir a senha desse usuário para o padrão (123456)?')) return;
+      Api.call('redefinir_senha', { codigo: codigo, usuario: session.nome, perfil: 'MASTER' }).then(function (res) {
+        if (res.success) {
+          Toast.success(res.message);
           document.getElementById('redefinirSenhaBlockUC').style.display = 'none';
         } else {
           Toast.error(res.message);
@@ -415,10 +428,9 @@
     document.getElementById('ucCodigo').disabled = true;
     document.getElementById('ucNome').value = u.nome;
     document.getElementById('ucPerfil').value = u.perfil;
-    document.getElementById('ucSenhaField').style.display = (u.perfil === 'avaliador') ? 'none' : 'block';
     document.getElementById('ucSenha').value = '';
     document.getElementById('ucSenhaHint').textContent = 'Deixe em branco para manter a senha atual.';
-    document.getElementById('btnAbrirRedefinirSenhaUC').style.display = (u.perfil !== 'avaliador') ? 'block' : 'none';
+    document.getElementById('btnAbrirRedefinirSenhaUC').style.display = 'block';
     document.getElementById('redefinirSenhaBlockUC').style.display = 'none';
     document.getElementById('novaSenhaRedefinirUC').value = '';
     document.getElementById('ucAtivo').checked = u.ativo !== false;

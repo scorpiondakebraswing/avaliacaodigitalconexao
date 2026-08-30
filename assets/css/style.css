@@ -783,3 +783,40 @@ canvas.sign-pad{
   font-style:italic; color:var(--ink-faint); font-size:13.5px;
   margin-top:18px; transition:opacity .4s ease; line-height:1.5;
 }
+
+/* =========================================================
+   Blocos de quesito coloridos (Quadrilha, Marcador, Rainha,
+   Casal, etc.) — ajuda a não confundir subquesitos com nomes
+   parecidos entre grupos diferentes
+   ========================================================= */
+
+.quesito-bloco{
+  border-radius:var(--radius-md);
+  padding:4px 16px 12px;
+  margin-bottom:18px;
+  border-left:5px solid transparent;
+}
+
+.quesito-bloco .form-field:first-of-type{ border-top:none !important; padding-top:8px !important; }
+
+.quesito-bloco.quadrilha-cor{ background:rgba(46, 125, 106, 0.07); border-left-color:var(--sidebar-bg); }
+.quesito-bloco.cor-1{ background:rgba(200, 108, 60, 0.08); border-left-color:#c86c3c; }
+.quesito-bloco.cor-2{ background:rgba(94, 118, 168, 0.09); border-left-color:#5e76a8; }
+.quesito-bloco.cor-3{ background:rgba(153, 92, 158, 0.08); border-left-color:#995c9e; }
+.quesito-bloco.cor-4{ background:rgba(122, 138, 62, 0.09); border-left-color:#7a8a3e; }
+.quesito-bloco.cor-5{ background:rgba(198, 134, 42, 0.09); border-left-color:var(--gold-deep); }
+.quesito-bloco.cor-6{ background:rgba(72, 150, 154, 0.09); border-left-color:#48969a; }
+
+.sidebar-secondary-btn{
+  width:100%;
+  background:rgba(227,165,61,0.14);
+  color:var(--gold);
+  border:1px solid rgba(227,165,61,0.3);
+  border-radius:var(--radius-sm);
+  padding:8px 10px;
+  font-size:12.5px;
+  font-weight:600;
+  cursor:pointer;
+}
+
+.sidebar-secondary-btn:hover{ background:rgba(227,165,61,0.24); }
